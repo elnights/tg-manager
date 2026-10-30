@@ -1,5 +1,7 @@
 # TG Manager
 
+**TL;DR:** Batch-delete your own Telegram messages from groups and channels.
+
 Browse Telegram chats in your terminal, switch between your messages and all
 authors, and select your own messages for deletion with explicit confirmation.
 Groups and channels appear by default; private chats are one key away.
