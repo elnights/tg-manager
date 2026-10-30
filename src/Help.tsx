@@ -2,7 +2,7 @@ import React, {useState} from 'react';
 import {Box, useInput} from 'ink';
 import stringWidth from 'string-width';
 import {Row} from './ui.js';
-import {ShortcutRow} from './Footer.js';
+import {legendRows, ShortcutLegend} from './Footer.js';
 
 export const helpSections = [
   {title: 'Navigation', entries: [
@@ -63,23 +63,29 @@ export function Help({width, height, onClose}: {width: number; height: number; o
     }),
     {text: '', heading: false},
   ]);
-  const bodyHeight = Math.max(0, height - 3);
+  let footerRows = legendRows([{key: '↑↓/jk', label: 'Scroll'}, {key: 'PgUp/PgDn', label: 'Page'},
+    {key: 'Esc/?', label: 'Close'}, {key: 'Ctrl+C', label: 'Quit'}], width);
+  const canScroll = width >= 9 && height > 2 + footerRows.length;
+  if (!canScroll) footerRows = legendRows([{key: 'Esc/?', label: 'Close'}, {key: 'Ctrl+C', label: 'Quit'}], width);
+  const headerHeight = Math.min(2, Math.max(0, height - footerRows.length));
+  const bodyHeight = Math.max(0, height - headerHeight - footerRows.length);
   const maxOffset = Math.max(0, lines.length - bodyHeight);
   const start = Math.min(offset, maxOffset);
   useInput((input, key) => {
     if (key.escape || input === '?') {onClose(); return;}
+    if (!canScroll) return;
     if (key.downArrow || input === 'j') setOffset(value => Math.min(maxOffset, value + 1));
     if (key.upArrow || input === 'k') setOffset(value => Math.max(0, value - 1));
     if (key.pageDown) setOffset(value => Math.min(maxOffset, value + Math.max(1, bodyHeight)));
     if (key.pageUp) setOffset(value => Math.max(0, value - Math.max(1, bodyHeight)));
   });
   return <Box width={width} height={height} flexDirection="column" overflow="hidden">
-    {height >= 2 && <Row width={width} bold color="cyanBright">KEYBOARD HELP · case-sensitive</Row>}
-    {height >= 3 && <Row width={width} color="white">{`Lowercase unless shown uppercase: A and L require Shift. ${start + 1}/${lines.length}`}</Row>}
+    {headerHeight >= 1 && <Row width={width} bold color="cyanBright">KEYBOARD HELP · case-sensitive</Row>}
+    {headerHeight >= 2 && <Row width={width} color="white">{canScroll ? `Lowercase unless shown uppercase: A and L require Shift. ${start + 1}/${lines.length}` : 'Enlarge the terminal to read help.'}</Row>}
     <Box width={width} height={bodyHeight} flexShrink={0} flexDirection="column" overflow="hidden">
       {lines.slice(start, start + bodyHeight).map((line, index) =>
         <Row key={start + index} width={width} color={line.heading ? 'cyanBright' : 'white'} bold={line.heading}>{line.text}</Row>)}
     </Box>
-    <ShortcutRow width={width} shortcuts={[{key: 'Esc', label: 'Close'}, {key: '↑↓', label: 'Scroll'}, {key: '?', label: 'Close'}]}/>
+    <ShortcutLegend width={width} rows={footerRows}/>
   </Box>;
 }

@@ -6,7 +6,7 @@ import stringWidth from 'string-width';
 import {stripVTControlCharacters} from 'node:util';
 import type {TelegramClient} from 'teleproto';
 import {App} from '../src/App.js';
-import {Footer, type FooterState} from '../src/Footer.js';
+import {Footer, footerShortcuts, legendRows, type FooterState} from '../src/Footer.js';
 import {StatusBar} from '../src/StatusBar.js';
 import {Help, helpSections} from '../src/Help.js';
 import {absentMessageIds} from '../src/messages.js';
@@ -17,27 +17,35 @@ const footerState: FooterState = {focus: 'chats', busy: false, cancelling: false
   selected: 0, hasMore: true, includePrivate: false};
 const plain = (node: React.ReactNode, columns = 200) => stripVTControlCharacters(renderToString(node, {columns}));
 
-test('footer shows only available actions with complete bindings across narrow widths', () => {
-  for (const focus of ['chats', 'messages'] as const) for (const width of [0, 1, 6, 7, 15, 24, 40, 60, 80, 120]) {
-    const output = plain(<Footer width={width} {...footerState} focus={focus}/>, Math.max(1, width));
-    assert.equal(output.includes('\n'), false);
-    assert.ok(stringWidth(output) <= width);
-    assert.ok(!output.includes('|') && !output.includes('…'), 'drop whole shortcuts instead of truncating');
-    if (width >= 6) assert.ok(output.includes('? Help'));
-    assert.ok(!output.includes('d Delete') && !output.includes('c Clear'));
-    if (focus === 'chats') assert.ok(!output.includes('Space') && !output.includes('s Select'));
-    else assert.ok(!output.includes('Private') && !output.includes('Resize'));
-    if (width >= 24) assert.ok(output.includes('A Delete all'));
+test('every active binding survives label shortening and wrapping in either panel', () => {
+  const modes = [
+    {}, {selected: 12}, {canSelect: false, hasOwn: false, hasMore: false}, {hasChat: false},
+    {busy: true}, {busy: true, cancelling: true}, {hasNotice: true},
+    {confirm: true}, {confirm: true, confirmationText: 'DELETE', canConfirm: true},
+    {confirm: true, promptVisible: false}, {selectPrompt: true}, {selectPrompt: true, promptVisible: false},
+  ];
+  for (const focus of ['chats', 'messages'] as const) for (const mode of modes) for (const width of [12, 24, 39, 59, 79, 119, 199, 299]) {
+    const state = {...footerState, ...mode, focus};
+    const shortcuts = footerShortcuts(state);
+    const output = plain(<Footer width={width} {...state}/>, width);
+    for (const shortcut of shortcuts) assert.ok(output.includes(shortcut.key), `missing ${shortcut.key} at ${width}: ${output}`);
+    assert.deepEqual(legendRows(shortcuts, width).flatMap(row => row.shortcuts.map(item => item.key)), shortcuts.map(item => item.key));
+    assert.ok(output.split('\n').every(line => stringWidth(line) <= width));
+    assert.ok(!output.includes('|') && !output.includes('…'));
   }
-  const selected = plain(<Footer width={140} {...footerState} focus="messages" selected={2}/>);
-  assert.match(selected, /d Delete/);
-  const unavailable = plain(<Footer width={140} {...footerState} focus="messages" hasMore={false} canSelect={false} hasOwn={false}/>);
-  assert.ok(!unavailable.includes('Select') && !unavailable.includes('Next'));
-  const busy = plain(<Footer width={140} {...footerState} busy/>);
-  assert.match(busy, /Esc Stop after request/);
-  assert.ok(!busy.includes('Navigate') && !busy.includes('Delete'));
-  assert.ok(!plain(<Footer width={140} {...footerState} confirm/>).includes('Enter'));
-  assert.match(plain(<Footer width={140} {...footerState} confirm canConfirm/>), /Enter Confirm/);
+});
+
+test('the active-binding list includes every global key and excludes paused application commands', () => {
+  const globals = ['Tab/←→', 'p', 'v', 'r', 'A', '[ ]', '0', 'q/Ctrl+C', '?'];
+  for (const focus of ['chats', 'messages'] as const) {
+    const keys = footerShortcuts({...footerState, focus, selected: 12, hasNotice: true}).map(item => item.key);
+    for (const key of [...globals, 'c', 'Esc']) assert.ok(keys.includes(key), `${focus}: missing ${key}`);
+    if (focus === 'messages') for (const key of ['Space', 's', 'd', 'n', 'L']) assert.ok(keys.includes(key));
+    else for (const key of ['Space', 's', 'd', 'n', 'L']) assert.ok(!keys.includes(key));
+  }
+  assert.deepEqual(footerShortcuts({...footerState, busy: true}).map(item => item.key), ['Esc', '?', 'Ctrl+C']);
+  assert.deepEqual(footerShortcuts({...footerState, confirm: true, promptVisible: false}).map(item => item.key), ['Esc', '?', 'Ctrl+C']);
+  assert.deepEqual(footerShortcuts({...footerState, selectPrompt: true}).map(item => item.key), ['Y/y', 'N/n', 'Esc/C/c', '?', 'Ctrl+C']);
 });
 
 test('status keeps summary alongside information and distinguishes requested from verified progress', () => {
@@ -50,23 +58,6 @@ test('status keeps summary alongside information and distinguishes requested fro
   const narrow = plain(<StatusBar {...props} width={30} progress={{label: 'Loading', completed: 200}}/>, 30);
   assert.equal(narrow.includes('\n'), false);
   assert.match(narrow, /Loading/);
-});
-
-test('delete-all and clear selection stay visible in both panels as other hints lose priority', () => {
-  for (const focus of ['chats', 'messages'] as const) for (const width of [39, 59, 79, 119, 199]) {
-    const output = plain(<Footer width={width} {...footerState} focus={focus} selected={12}/>, width);
-    assert.match(output, /A Delete all/);
-    assert.match(output, /c Clear/);
-    if (focus === 'messages') assert.match(output, /d Delete/);
-    assert.ok(stringWidth(output) <= width);
-    assert.ok(!output.includes('\n'));
-  }
-  const noChat = plain(<Footer width={199} {...footerState} hasChat={false}/>);
-  assert.ok(!noChat.includes('A Delete all'));
-  const noSelection = plain(<Footer width={199} {...footerState}/>);
-  assert.ok(!noSelection.includes('c Clear'));
-  const normal = plain(<Footer width={79} {...footerState} focus="messages" selected={12}/>, 79);
-  for (const key of ['Space Mark', 's Own', 'n Next', 'L Load all', '? Help']) assert.ok(normal.includes(key), normal);
 });
 
 test('loaded count is exact and history availability is a separate statement', () => {
@@ -117,28 +108,82 @@ test('normal-width UI keeps A and c discoverable and shows one stable exact load
     await ready(ui);
     const initial = 'Mine · 100 own messages loaded · 0 selected · More may be available';
     assert.equal(status(), initial);
-    assert.match(footer(), /A Delete all/);
+    assert.match(footer(), /(?:^| )A(?: |$)/);
     assert.equal(mock.calls.pages, 1, 'display changes must not trigger an extra page request');
     await ui.press('\t');
-    assert.match(footer(), /A Delete all/);
+    assert.match(footer(), /(?:^| )A(?: |$)/);
     await ui.press(' ');
-    assert.match(footer(), /c Clear/);
-    assert.match(footer(), /A Delete all/);
+    assert.match(footer(), /(?:^| )c(?: |$)/);
+    assert.match(footer(), /(?:^| )A(?: |$)/);
     await ui.press('\t');
-    assert.match(footer(), /c Clear/);
+    assert.match(footer(), /(?:^| )c(?: |$)/);
     await ui.press('c');
     assert.equal(status(), initial);
-    assert.ok(!footer().includes('c Clear'));
+    assert.ok(!footer().split(/\s+/).includes('c'));
     await ui.press('p');
     assert.equal(status(), initial, 'toggling chat visibility must not flash another status');
     await ui.press('\t');
     await ui.press('n');
     await ui.waitFor(frame => frame.includes('100 own messages loaded') && !frame.includes('More may be available') && !frame.includes('Loading history'));
     assert.equal(status(), 'Mine · 100 own messages loaded · 0 selected');
-    assert.match(footer(), /A Delete all/);
-    assert.ok(!footer().includes('n Next') && !footer().includes('L Load all'));
+    assert.match(footer(), /(?:^| )A(?: |$)/);
+    assert.ok(!footer().split(/\s+/).includes('n') && !footer().split(/\s+/).includes('L'));
     assert.ok(ui.frames.every(frame => !frame.includes('100+') && !frame.includes('Loaded 100')));
     assert.equal(mock.calls.deletes.length, 0);
+  } finally {await ui.close();}
+});
+
+test('the rendered legend includes all working keys after focus, selection and terminal size changes', async () => {
+  const mock = fixture(202);
+  const ui = testTerminal(<App client={mock.client as unknown as TelegramClient}/>, {columns: 80, rows: 24});
+  const legend = () => {
+    const lines = ui.frame().trimEnd().split('\n');
+    return lines.slice(lines.findIndex(line => line.startsWith('Mine ·')) + 1).join('\n');
+  };
+  const assertKeys = (keys: string[]) => {
+    for (const key of keys) assert.ok(legend().includes(key), `missing ${key}: ${legend()}`);
+  };
+  const globalKeys = ['↑↓/jk', 'Tab/←→', 'p', 'v', 'r', 'A', '[ ]', '0', 'q/Ctrl+C', '?'];
+  try {
+    await ready(ui);
+    // There is one chat, so only the messages panel has navigation work to do.
+    assertKeys(globalKeys.filter(key => key !== '↑↓/jk'));
+    await ui.press('\t');
+    assertKeys([...globalKeys, 'Space', 's', 'n', 'L']);
+    await ui.press(' ');
+    assertKeys([...globalKeys, 'Space', 's', 'c', 'd', 'n', 'L']);
+    for (const columns of [40, 25, 60, 80, 120]) {
+      await ui.resize(columns, 12);
+      assertKeys([...globalKeys, 'Space', 's', 'c', 'd', 'n', 'L']);
+      assert.ok(ui.frame().trimEnd().split('\n').length <= 11);
+    }
+    assert.equal(mock.calls.pages, 1);
+    assert.equal(mock.calls.deletes.length, 0);
+    await ui.press('?');
+    await ui.waitFor(frame => frame.includes('KEYBOARD HELP'));
+    const helpLegend = ui.frame().trimEnd().split('\n').at(-1)!;
+    for (const key of ['↑↓/jk', 'PgUp/PgDn', 'Esc/?', 'Ctrl+C']) assert.ok(helpLegend.includes(key));
+  } finally {await ui.close();}
+});
+
+test('when the terminal cannot fit active keys, only the displayed escape routes remain active', async () => {
+  const mock = fixture();
+  const ui = testTerminal(<App client={mock.client as unknown as TelegramClient}/>, {columns: 80, rows: 24});
+  try {
+    await ready(ui);
+    await ui.resize(13, 3);
+    for (const key of ['v', 'p', 'r', 'A']) await ui.press(key);
+    assert.equal(mock.calls.pages, 1);
+    assert.equal(mock.calls.scans, 0);
+    assert.ok(ui.frame().includes('?') && ui.frame().includes('Ctrl+C'));
+    assert.ok(ui.frame().trimEnd().split('\n').length <= 2);
+    await ui.press('?');
+    await ui.waitFor(frame => frame.includes('Esc/?'));
+    await ui.press('\x1b');
+    await ui.resize(80, 24);
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
+    assert.equal(mock.calls.pages, 1);
+    assert.ok(ui.frame().includes('GROUPS/'), 'hidden private-chat shortcut must not run');
   } finally {await ui.close();}
 });
 

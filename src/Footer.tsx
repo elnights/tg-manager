@@ -2,64 +2,92 @@ import React from 'react';
 import {Box, Text} from 'ink';
 import stringWidth from 'string-width';
 
-type Shortcut = {key: string; label: string; compactLabel?: string; priority?: number};
-const GAP = '  ';
+export type Shortcut = {key: string; label: string; compactLabel?: string};
+export type LegendRow = {shortcuts: Shortcut[]; gap: string};
 export type FooterState = {
   focus: 'chats' | 'messages'; busy: boolean; cancelling: boolean;
   confirm: boolean; canConfirm: boolean; selectPrompt: boolean; hasChat: boolean;
   canNavigate: boolean; canSelect: boolean; hasOwn: boolean; selected: number; hasMore: boolean;
-  includePrivate: boolean;
+  includePrivate: boolean; hasNotice?: boolean; promptVisible?: boolean; confirmationText?: string;
 };
 
 export function footerShortcuts(state: FooterState): Shortcut[] {
-  if (state.confirm) return [...(state.canConfirm ? [{key: 'Enter', label: 'Confirm'}] : []),
-    {key: 'Esc', label: 'Cancel'}, {key: '?', label: 'Help'}];
-  if (state.selectPrompt) return [{key: 'Y', label: 'Load & select'}, {key: 'N', label: 'Loaded only'},
-    {key: 'Esc', label: 'Cancel'}, {key: '?', label: 'Help'}];
-  if (state.busy) return [...(!state.cancelling ? [{key: 'Esc', label: 'Stop after request'}] : []), {key: '?', label: 'Help'}];
-  const shared: Shortcut[] = [
-    ...(state.canNavigate ? [{key: '↑↓', label: 'Navigate', compactLabel: 'Move', priority: 7}] : []),
-    {key: 'Tab', label: 'Switch panel', compactLabel: 'Panel', priority: 8},
+  const help = {key: '?', label: 'Help'};
+  const interrupt = {key: 'Ctrl+C', label: 'Quit'};
+  if (state.confirm) return [
+    ...(state.promptVisible !== false ? [
+      {key: 'DELETE', label: 'Type to confirm', compactLabel: 'Type'},
+      ...(state.confirmationText ? [{key: 'Backspace', label: 'Edit'}, {key: 'Del', label: 'Edit'}] : []),
+      ...(state.canConfirm ? [{key: 'Enter', label: 'Confirm'}] : []),
+    ] : []),
+    {key: 'Esc', label: 'Cancel'}, help, interrupt,
   ];
-  const clear: Shortcut[] = state.selected ? [{key: 'c', label: 'Clear selection', compactLabel: 'Clear', priority: 2}] : [];
-  const all: Shortcut[] = state.hasChat ? [{key: 'A', label: 'Delete all own', compactLabel: 'Delete all', priority: 1}] : [];
-  const help: Shortcut = {key: '?', label: 'Help', priority: 0};
-  if (state.focus === 'chats') return [...shared,
-    {key: 'p', label: state.includePrivate ? 'Hide private' : 'Show private', compactLabel: 'Private', priority: 4},
-    {key: 'v', label: 'Mine/All', compactLabel: 'View', priority: 9},
-    ...clear, ...all, {key: '[ ]', label: 'Resize', priority: 10}, help];
-  return [...shared,
-    ...(state.canSelect ? [{key: 'Space', label: 'Select', compactLabel: 'Mark', priority: 4}] : []),
-    ...(state.hasOwn || state.hasMore ? [{key: 's', label: 'Select own', compactLabel: 'Own', priority: 5}] : []),
-    ...clear,
-    ...(state.selected ? [{key: 'd', label: 'Delete selected', compactLabel: 'Delete', priority: 3}] : []),
-    ...all,
-    ...(state.hasMore && state.hasChat ? [{key: 'n', label: 'Next page', compactLabel: 'Next', priority: 6},
-      {key: 'L', label: 'Load all', priority: 6}] : []),
-    {key: 'v', label: 'Mine/All', compactLabel: 'View', priority: 9}, help];
+  if (state.selectPrompt) return [
+    ...(state.promptVisible !== false ? [{key: 'Y/y', label: 'Load & select'}, {key: 'N/n', label: 'Loaded only'}] : []),
+    {key: 'Esc/C/c', label: 'Cancel'}, help, interrupt,
+  ];
+  if (state.busy) return [
+    ...(!state.cancelling || state.hasNotice ? [{key: 'Esc', label: state.cancelling ? 'Dismiss' : 'Stop after request', compactLabel: 'Stop'}] : []),
+    help, interrupt,
+  ];
+  const messages = state.focus === 'messages';
+  return [
+    ...(state.canNavigate ? [{key: '↑↓/jk', label: 'Navigate', compactLabel: 'Move'}] : []),
+    {key: 'Tab/←→', label: 'Switch panel', compactLabel: 'Panel'},
+    {key: 'p', label: state.includePrivate ? 'Hide private' : 'Show private', compactLabel: 'Private'},
+    {key: 'v', label: 'Mine/All', compactLabel: 'View'},
+    ...(state.hasChat ? [{key: 'r', label: 'Reload'}] : []),
+    ...(messages && state.canSelect ? [{key: 'Space', label: 'Select', compactLabel: 'Mark'}] : []),
+    ...(messages && (state.hasOwn || state.hasMore) ? [{key: 's', label: 'Select own', compactLabel: 'Own'}] : []),
+    ...(state.selected ? [{key: 'c', label: 'Clear selection', compactLabel: 'Clear'}] : []),
+    ...(messages && state.selected ? [{key: 'd', label: 'Delete selected', compactLabel: 'Delete'}] : []),
+    ...(state.hasChat ? [{key: 'A', label: 'Delete all own', compactLabel: 'Delete all'}] : []),
+    ...(messages && state.hasMore && state.hasChat ? [{key: 'n', label: 'Next page', compactLabel: 'Next'}, {key: 'L', label: 'Load all'}] : []),
+    {key: '[ ]', label: 'Resize'}, {key: '0', label: 'Reset width', compactLabel: 'Reset'},
+    {key: 'q/Ctrl+C', label: 'Quit'},
+    ...(state.hasNotice ? [{key: 'Esc', label: 'Dismiss'}] : []), help,
+  ];
 }
 
-// Shorten labels before dropping bindings. Fit by priority, then restore the
-// display order so selection/deletion groups stay in a predictable position.
-export function fitShortcuts(shortcuts: Shortcut[], width: number): Shortcut[] {
-  const total = shortcuts.reduce((sum, item) => sum + stringWidth(`${item.key} ${item.label}`), 0) + Math.max(0, shortcuts.length - 1) * GAP.length;
-  const candidates = total <= width ? shortcuts : shortcuts.map(item => ({...item, label: item.compactLabel ?? item.label}));
-  const result = new Set<Shortcut>();
-  let used = 0;
-  for (const shortcut of [...candidates].sort((a, b) => (a.priority ?? (a.key === '?' ? 0 : 1)) - (b.priority ?? (b.key === '?' ? 0 : 1)))) {
-    const cells = stringWidth(`${shortcut.key} ${shortcut.label}`) + (result.size ? GAP.length : 0);
-    if (used + cells <= width) {result.add(shortcut); used += cells;}
+function rowWidth(shortcuts: Shortcut[], gap: string): number {
+  return shortcuts.reduce((sum, item) => sum + stringWidth(item.key + (item.label ? ` ${item.label}` : '')), 0) +
+    Math.max(0, shortcuts.length - 1) * gap.length;
+}
+
+// Never remove an active binding. Prefer full descriptions, then short labels,
+// then keys alone. At narrow widths use as many bounded rows as the keys need.
+export function legendRows(shortcuts: Shortcut[], width: number): LegendRow[] {
+  if (!shortcuts.length || width <= 0) return [];
+  if (rowWidth(shortcuts, '  ') <= width) return [{shortcuts, gap: '  '}];
+  const compact = shortcuts.map(item => ({...item, label: item.compactLabel ?? item.label}));
+  if (rowWidth(compact, ' ') <= width) return [{shortcuts: compact, gap: ' '}];
+  const rows: LegendRow[] = [];
+  for (const item of compact) {
+    const shortcut = {...item, label: ''};
+    const previous = rows.at(-1);
+    if (previous && rowWidth([...previous.shortcuts, shortcut], ' ') <= width) previous.shortcuts.push(shortcut);
+    else rows.push({shortcuts: [shortcut], gap: ' '});
   }
-  return candidates.filter(item => result.has(item));
+  // Reserve every key first, then spend spare cells on useful descriptions.
+  const captions = ['[ ]', '0', 'A', 'c', '?'];
+  for (const row of rows) for (const item of [...row.shortcuts].sort((a, b) =>
+    (captions.includes(a.key) ? captions.indexOf(a.key) : captions.length) -
+    (captions.includes(b.key) ? captions.indexOf(b.key) : captions.length))) {
+    const label = compact.find(shortcut => shortcut.key === item.key)!.label;
+    if (rowWidth(row.shortcuts, row.gap) + 1 + stringWidth(label) <= width) item.label = label;
+  }
+  return rows;
 }
 
-export function ShortcutRow({width, shortcuts}: {width: number; shortcuts: Shortcut[]}) {
-  return <Box width={width} height={1} flexShrink={0} overflow="hidden">
-    <Text wrap="truncate-end" color="white">{fitShortcuts(shortcuts, width).map((item, index) =>
-      <React.Fragment key={item.key}>{index > 0 && GAP}<Text bold color="cyanBright">{item.key}</Text>{` ${item.label}`}</React.Fragment>)}</Text>
+export function ShortcutLegend({width, rows}: {width: number; rows: LegendRow[]}) {
+  return <Box width={width} height={rows.length} flexShrink={0} flexDirection="column" overflow="hidden">
+    {rows.map((row, index) => <Box key={index} width={width} height={1} flexShrink={0} overflow="hidden">
+      <Text wrap="truncate-end" color="white">{row.shortcuts.map((item, index) =>
+        <React.Fragment key={item.key}>{index > 0 && row.gap}<Text bold color="cyanBright">{item.key}</Text>{item.label ? ` ${item.label}` : ''}</React.Fragment>)}</Text>
+    </Box>)}
   </Box>;
 }
 
 export function Footer({width, ...state}: FooterState & {width: number}) {
-  return <ShortcutRow width={width} shortcuts={footerShortcuts(state)}/>;
+  return <ShortcutLegend width={width} rows={legendRows(footerShortcuts(state), width)}/>;
 }

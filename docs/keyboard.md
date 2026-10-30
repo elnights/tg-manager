@@ -94,8 +94,14 @@ Errors and warnings also remain until dismissed; routine information expires.
 
 Width is saved to `~/.config/tg-manager/settings.json` and clamped to 20–70%,
 subject to terminal width. A short terminal shows an enlargement hint while
-retaining the footer; help scrolls independently. The footer first shortens
-labels, then drops lower-priority hints. `A Delete all` is available from either
-panel when a chat is active. With a selection, `c Clear` stays visible in either
-panel and `d Delete` appears in the messages panel. These actions take priority
-over navigation and layout hints as the terminal narrows.
+retaining the legend; help scrolls independently. Both panels list the global
+controls: panel switching (including arrow aliases), private-chat visibility,
+view, reload, delete-all, width adjustment/reset, quit and help. Selection and
+pagination keys appear when their actions are available. Prompts and background
+work list their own accepted keys, including Ctrl+C.
+
+The legend always reserves room for every active key. It first shortens labels,
+then uses key names with descriptions where space allows. At narrower widths,
+additional legend rows reduce the message area instead of hiding bindings.
+If even the key names cannot fit in the terminal, application commands pause
+until it is enlarged; help and Ctrl+C remain available.

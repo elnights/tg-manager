@@ -6,7 +6,7 @@ import {dirname, join} from 'node:path';
 import {homedir} from 'node:os';
 import type {TelegramClient} from 'teleproto';
 import {absentMessageIds, fetchMessagePage, ownMessageIds, PAGE, type Message, type MessageView} from './messages.js';
-import {Footer} from './Footer.js';
+import {footerShortcuts, legendRows, ShortcutLegend, type FooterState} from './Footer.js';
 import {Help} from './Help.js';
 import {StatusBar, useNotice} from './StatusBar.js';
 import {useOperation} from './useOperation.js';
@@ -188,11 +188,38 @@ export function App({client}: {client: TelegramClient}) {
     }
   };
 
+  const widths = panelWidths(size.columns, chatPercent);
+  const {width: lineWidth, leftWidth, rightWidth} = widths;
+  const height = Math.max(1, size.rows - 1);
+  const confirmationHeight = confirm || selectAllPrompt ? 5 : 0;
+  const footerState: FooterState = {
+    focus, busy: Boolean(progress), cancelling: Boolean(progress?.cancelling),
+    confirm: Boolean(confirm), canConfirm: confirmationText === 'DELETE', selectPrompt: selectAllPrompt,
+    hasChat: Boolean(active), canNavigate: focus === 'chats' ? chats.length > 1 : messages.length > 1,
+    canSelect: Boolean(messages[messageIndex]?.own), hasOwn: messages.some(message => message.own),
+    selected: selected.size, hasMore, includePrivate, hasNotice: Boolean(notice), confirmationText,
+  };
+  // Reserve enough room for the complete prompt and all of its enabled keys.
+  const promptVisible = lineWidth >= 24 && height >= 3 + confirmationHeight +
+    legendRows(footerShortcuts({...footerState, canConfirm: Boolean(confirm)}), lineWidth).length;
+  footerState.promptVisible = promptVisible;
+  footerState.canConfirm &&= promptVisible;
+  let footerRows = legendRows(footerShortcuts(footerState), lineWidth);
+  const legendFits = lineWidth >= 8 && height >= footerRows.length &&
+    footerRows.every(row => row.shortcuts.every(item => item.key.length <= lineWidth));
+  // If even the key names cannot fit, only these visible escape routes work.
+  if (!legendFits) footerRows = legendRows([{key: '?', label: 'Help'}, {key: 'Ctrl+C', label: 'Quit'}], lineWidth);
+  const baseHeight = 3 + footerRows.length; // title, panel heading, status, legend
+  const listHeight = Math.max(0, height - baseHeight - confirmationHeight);
+  const footer = <ShortcutLegend width={lineWidth} rows={footerRows}/>;
+
   useInput((input, key) => {
     if (helpOpen) return;
     if (input === '?') {setHelpOpen(true); return;}
+    if (!legendFits) return;
     if (selectAllPrompt) {
       if (key.escape || input.toLowerCase() === 'c') {setSelectAllPrompt(false); return;}
+      if (!promptVisible) return;
       if (input.toLowerCase() === 'n') {setSelectAllPrompt(false); markLoaded(); return;}
       if (input.toLowerCase() === 'y') {void loadHistory(true); return;}
       return;
@@ -201,7 +228,7 @@ export function App({client}: {client: TelegramClient}) {
       if (key.escape) {setConfirm(null); setConfirmationText(''); return;}
       // Never accept a destructive confirmation while its context is hidden by
       // the small-terminal fallback. Help and cancellation still work.
-      if (size.rows < 10 || size.columns < 25) return;
+      if (!promptVisible) return;
       if (key.return) {
         if (confirmationText === 'DELETE') void doDelete();
         else notify('Enter exactly DELETE to confirm.', 'warning');
@@ -278,12 +305,6 @@ export function App({client}: {client: TelegramClient}) {
     }
   });
 
-  const widths = panelWidths(size.columns, chatPercent);
-  const {width: lineWidth, leftWidth, rightWidth} = widths;
-  const height = Math.max(1, size.rows - 1);
-  const confirmationHeight = confirm || selectAllPrompt ? 5 : 0;
-  const baseHeight = 4; // title, panel heading, status, footer
-  const listHeight = Math.max(0, height - baseHeight - confirmationHeight);
   const chatStart = Math.max(0, chatIndex - listHeight + 1);
   const messageStart = Math.max(0, messageIndex - listHeight + 1);
   const visibleChats = chats.slice(chatStart, chatStart + listHeight);
@@ -294,21 +315,16 @@ export function App({client}: {client: TelegramClient}) {
       {`${focus === panel ? '[ACTIVE]' : '[      ]'} ${title}`}
     </Row>;
 
-  const footer = <Footer width={lineWidth} focus={focus} busy={Boolean(progress)} cancelling={Boolean(progress?.cancelling)}
-    confirm={Boolean(confirm)} canConfirm={confirmationText === 'DELETE' && height >= baseHeight + confirmationHeight && lineWidth >= 24} selectPrompt={selectAllPrompt}
-    hasChat={Boolean(active)} canNavigate={focus === 'chats' ? chats.length > 1 : messages.length > 1}
-    canSelect={Boolean(messages[messageIndex]?.own)} hasOwn={messages.some(message => message.own)}
-    selected={selected.size} hasMore={hasMore} includePrivate={includePrivate}/>;
   const statusBar = <StatusBar width={lineWidth} view={view} loaded={messages.length} hasMore={hasMore}
     selected={selected.size} progress={progress} notice={notice}/>;
 
   if (helpOpen) return <Help width={lineWidth} height={height} onClose={() => setHelpOpen(false)}/>;
-  if (height < baseHeight + confirmationHeight || lineWidth < 24) {
+  if (height < baseHeight + confirmationHeight || lineWidth < 24 || !promptVisible) {
     return <Box width={lineWidth} height={height} flexDirection="column" overflow="hidden">
-      <Box height={Math.max(0, height - 2)} flexShrink={0} flexDirection="column" overflow="hidden">
+      <Box height={Math.max(0, height - footerRows.length - 1)} flexShrink={0} flexDirection="column" overflow="hidden">
         <Row width={lineWidth} color="yellowBright">Enlarge the terminal to show the interface.</Row>
       </Box>
-      {height >= 2 && statusBar}
+      {height > footerRows.length && statusBar}
       {footer}
     </Box>;
   }

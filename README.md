@@ -11,7 +11,7 @@ TG MANAGER / Weekend project
 [ACTIVE] GROUPS/CHANNELS          MESSAGES [MINE]
 > Weekend project                > [ ] You: Example message
 Mine · 100 own messages loaded · 0 selected · More may be available
-Tab Panel  p Private  v View  A Delete all  [ ] Resize  ? Help
+Tab/←→ p v r A Delete all [ ] Resize 0 Reset q/Ctrl+C ? Help
 ```
 
 ## Installation
@@ -66,7 +66,9 @@ See [storage and migration](docs/storage.md) before moving an existing install.
 | `Esc` | Cancel a prompt, stop work after the current request, or dismiss an alert |
 | `q`, `Ctrl+C` | Quit from the main view / anytime |
 
-Keys are case-sensitive. The footer adapts to focus and available actions.
+Keys are case-sensitive. The legend lists every active binding, including
+`[`, `]` and `0` in both panels. It shortens descriptions before using extra
+rows on narrow terminals; working keys are never silently dropped.
 The status bar shows the view, loaded and selected counts, and operation progress.
 Loaded counts are exact. “More may be available” means the next page has not
 yet been checked; it disappears once the end of the history is confirmed.

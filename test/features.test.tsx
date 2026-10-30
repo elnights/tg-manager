@@ -415,21 +415,22 @@ test('the footer changes with focus, selection and width while remaining on the 
   const footer = () => ui.frame().trimEnd().split('\n').at(-1)!;
   try {
     await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
-    assert.match(footer(), /p (?:Show )?Private/i);
-    assert.match(footer(), /\? Help/);
-    assert.match(footer(), /A Delete all/);
-    assert.ok(!footer().includes('c Clear'));
+    assert.match(footer(), /(?:^| )p(?: |$)/);
+    assert.match(footer(), /\?(?: |$)/);
+    assert.match(footer(), /(?:^| )A(?: |$)/);
+    assert.ok(!footer().split(/\s+/).includes('c'));
     await ui.press('\t');
-    assert.match(footer(), /Space (?:Select|Mark)/);
-    assert.ok(!footer().includes('Private'));
-    assert.ok(!footer().includes('d Delete'));
+    assert.match(footer(), /(?:^| )Space(?: |$)/);
+    assert.match(footer(), /(?:^| )p(?: |$)/);
+    assert.ok(footer().includes('[ ]') && footer().split(/\s+/).includes('0'));
+    assert.ok(!footer().split(/\s+/).includes('d'));
     await ui.press(' ');
-    assert.match(footer(), /d Delete/);
-    assert.match(footer(), /c Clear/);
-    assert.match(footer(), /A Delete all/);
+    assert.match(footer(), /(?:^| )d(?: |$)/);
+    assert.match(footer(), /(?:^| )c(?: |$)/);
+    assert.match(footer(), /(?:^| )A(?: |$)/);
     for (const [columns, rows] of [[60, 12], [25, 6], [80, 3], [100, 32]]) {
       await ui.resize(columns!, rows!);
-      assert.match(footer(), /\? Help/);
+      assert.match(footer(), /\?(?: |$)/);
       assert.ok(ui.frame().trimEnd().split('\n').length <= rows! - 1);
     }
     assert.equal(mock.requests.length, 1, 'resizing preserves loaded messages and marks');
