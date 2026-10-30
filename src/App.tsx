@@ -1,376 +1,690 @@
-import React, {useCallback, useEffect, useState} from 'react';
+import React, {useCallback, useEffect, useReducer, useRef, useState} from 'react';
 import {Box, useApp, useInput} from 'ink';
-import {adjustChatPercent, DEFAULT_CHAT_PERCENT, panelWidths, Panels, Row, useTerminalSize} from './ui.js';
-import {mkdirSync, readFileSync, writeFileSync} from 'node:fs';
-import {dirname, join} from 'node:path';
-import {homedir} from 'node:os';
-import type {TelegramClient} from 'teleproto';
-import {absentMessageIds, fetchMessagePage, ownMessageIds, PAGE, type Message, type MessageView} from './messages.js';
+import {adjustChatPercent, panelWidths, Panels, Row, useTerminalSize} from './ui.js';
+import {fetchMessagePage, ownMessageIds} from './messages.js';
 import {footerShortcuts, legendRows, ShortcutLegend, type FooterState} from './Footer.js';
+import {wrapText} from './text.js';
+import {describeError} from './errors.js';
+import {commandFor} from './commands.js';
 import {Help} from './Help.js';
 import {StatusBar, useNotice} from './StatusBar.js';
 import {useOperation} from './useOperation.js';
+import {Reader} from './Reader.js';
+import {Confirmation, confirmationLines} from './Confirmation.js';
+import {accountIdentity, type Chat, type TelegramApi} from './telegram.js';
+import {settingsStore, validChatPercent, type SettingsStore} from './settings.js';
+import {
+  appendPage,
+  deleteOwnMessages,
+  deletionSummary,
+  loadMessageHistory,
+  scanOwnMessages,
+  selectedOwn,
+} from './operations.js';
+import {createDialogPager} from './dialogs.js';
+import type {Message} from './messages.js';
+import {initialView, viewReducer, visibleChats} from './state.js';
 
-type Chat = {id: string; title: string; entity: any; isPrivate: boolean};
 type Focus = 'chats' | 'messages';
-type Confirm = {ids: number[]; chat: Chat};
-const CONFIG_PATH = join(homedir(), '.config', 'tg-manager', 'settings.json');
-function readChatPercent(): number {
-  try {
-    const value = JSON.parse(readFileSync(CONFIG_PATH, 'utf8')).chatPercent;
-    return Number.isFinite(value) && value >= 20 && value <= 70 ? value : DEFAULT_CHAT_PERCENT;
-  } catch { return DEFAULT_CHAT_PERCENT; }
-}
-function saveChatPercent(chatPercent: number): void {
-  try {
-    mkdirSync(dirname(CONFIG_PATH), {recursive: true, mode: 0o700});
-    writeFileSync(CONFIG_PATH, JSON.stringify({chatPercent}, null, 2) + '\n', {mode: 0o600});
-  } catch { /* Settings can remain in memory if home is read-only. */ }
-}
-export function App({client}: {client: TelegramClient}) {
+type Prompt =
+  | {kind: 'none'}
+  | {kind: 'select'}
+  | {kind: 'delete'; ids: number[]; chat: Chat; scope: 'selected' | 'entire'; text: string};
+type Initialization = 'loading' | 'ready' | 'error';
+
+export function App({client, settings = settingsStore}: {client: TelegramApi; settings?: SettingsStore}) {
   const {exit} = useApp();
   const size = useTerminalSize();
-  const [chatPercent, setChatPercent] = useState(readChatPercent);
-  const [allChats, setChats] = useState<Chat[]>([]);
-  const [includePrivate, setIncludePrivate] = useState(false);
-  const [chatIndex, setChatIndex] = useState(0);
+  const [state, dispatch] = useReducer(viewReducer, initialView);
+  const {includePrivate, view, history, messageIndex, selected} = state;
+  const messages = history.items;
+  const hasMore = history.more;
+  const chats = visibleChats(state);
+  const chatIndex = Math.max(
+    0,
+    chats.findIndex((chat) => chat.id === state.activeId),
+  );
+  const active = chats.find((chat) => chat.id === state.activeId);
+  const [chatPercent, setChatPercent] = useState(() => {
+    try {
+      return validChatPercent(settings.read());
+    } catch {
+      return 32;
+    }
+  });
+  const savedPercent = useRef(chatPercent);
+  useEffect(() => {
+    if (savedPercent.current === chatPercent) return;
+    savedPercent.current = chatPercent;
+    try {
+      settings.write(chatPercent);
+    } catch {
+      /* Keep usable in-memory settings. */
+    }
+  }, [chatPercent, settings]);
   const [selfId, setSelfId] = useState('');
-  const [view, setView] = useState<MessageView>('mine');
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [messageIndex, setMessageIndex] = useState(0);
-  const [selected, setSelected] = useState<Set<number>>(new Set());
-  const [focus, setFocus] = useState<Focus>('chats');
-  const [hasMore, setHasMore] = useState(false);
-  const {progress, current: busyRef, begin, cancel} = useOperation();
-  const {notice, notify, dismissNotice} = useNotice();
-  const [helpOpen, setHelpOpen] = useState(false);
-  const [confirm, setConfirm] = useState<Confirm | null>(null);
-  const [selectAllPrompt, setSelectAllPrompt] = useState(false);
-  const [confirmationText, setConfirmationText] = useState('');
+  const [account, setAccount] = useState('');
+  const [initialization, setInitialization] = useState<Initialization>('loading');
+  const dialogPager = useRef<ReturnType<typeof createDialogPager> | null>(null);
+  const [chatsMore, setChatsMore] = useState(false);
+  const [search, setSearch] = useState<{original: string} | null>(null);
+  const [detail, setDetail] = useState<Message | null>(null);
+  const [retry, setRetry] = useState(0);
   const [refresh, setRefresh] = useState(0);
-  const chats = includePrivate ? allChats : allChats.filter(chat => !chat.isPrivate);
-  const active = chats[chatIndex];
+  const [focus, setFocus] = useState<Focus>('chats');
+  const {progress, current: busyRef, begin, cancel} = useOperation();
+  const {notice, notify, dismissNotice, resolveValidation} = useNotice();
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [noticeOpen, setNoticeOpen] = useState(false);
+  const [prompt, setPrompt] = useState<Prompt>({kind: 'none'});
+  const confirm = prompt.kind === 'delete' ? prompt : null;
+  const selectAllPrompt = prompt.kind === 'select';
+  const confirmationText = confirm?.text ?? '';
 
   useEffect(() => {
     let disposed = false;
     const task = begin('Connecting');
+    if (!task) return;
+    setInitialization('loading');
+    const pager = createDialogPager(client);
+    dialogPager.current = pager;
     void (async () => {
       try {
-        const [dialogs, me] = await Promise.all([client.getDialogs({limit: 500}), client.getMe()]);
-        if (!disposed) {
+        const [pageResult, meResult] = await Promise.allSettled([pager.next(task), client.getMe()]);
+        if (pageResult.status === 'rejected') throw pageResult.reason;
+        if (meResult.status === 'rejected') throw meResult.reason;
+        const page = pageResult.value;
+        const me = meResult.value;
+        if (!disposed && task.active) {
           setSelfId(me.id.toString());
-          setChats(dialogs.filter(d => d.entity && (d.isUser || d.isGroup || d.isChannel)).map(d => ({
-            id: String(d.id), title: d.title || '(untitled)', entity: d.entity!, isPrivate: d.isUser,
-          })));
+          setAccount(accountIdentity(me));
+          setInitialization('ready');
+          dispatch({type: 'chats', chats: page.chats});
+          setChatsMore(page.more);
         }
-      } catch (e) {if (!disposed) notify(`Connecting failed: ${String(e)}`, 'error');}
-      finally {task?.finish();}
+      } catch (error) {
+        if (!disposed && task.active) {
+          setInitialization('error');
+          notify(`Connecting failed: ${describeError(error)}. Press r to Retry.`, 'error');
+        }
+      } finally {
+        task.finish();
+      }
     })();
-    return () => {disposed = true; task?.finish();};
-  }, [client]);
+    return () => {
+      disposed = true;
+      task.cancelled = true;
+      task.finish();
+      void pager.close().catch(() => {});
+    };
+  }, [client, retry, begin, notify]);
 
-  const fetchPage = useCallback((chat: Chat, offsetId = 0): Promise<Message[]> =>
-    fetchMessagePage(client, chat.entity, selfId, view, offsetId), [client, selfId, view]);
-
+  const fetchPage = useCallback(
+    (chat: Chat, offsetId = 0) => fetchMessagePage(client, chat.entity, selfId, view, offsetId),
+    [client, selfId, view],
+  );
+  const activeId = active?.id;
+  const activeEntity = active?.entity;
   useEffect(() => {
-    let disposed = false;
-    setMessages([]); setSelected(new Set()); setMessageIndex(0); setHasMore(false);
-    if (!active || !selfId) {
-      if (selfId) notify(includePrivate ? 'No chats found.' : 'No groups or channels found. Press p to show private chats.');
-      return;
-    }
-    const task = begin('Loading');
-    void fetchPage(active).then(items => {
-      if (disposed) return;
-      setMessages(items); setHasMore(items.length === PAGE);
-    }).catch(e => {if (!disposed) notify(`Loading failed: ${String(e)}`, 'error');})
-      .finally(() => {if (!disposed) task?.finish();});
-    return () => {disposed = true; task?.finish();};
-  }, [active?.id, selfId, refresh, fetchPage]);
-
-  const loadMore = async () => {
-    if (!active || !hasMore || !messages.length) return;
+    if (!activeId || !activeEntity || !selfId) return;
     const task = begin('Loading');
     if (!task) return;
+    let disposed = false;
+    void fetchMessagePage(client, activeEntity, selfId, view)
+      .then((items) => {
+        if (!disposed && task.active)
+          dispatch({
+            type: 'history',
+            chatId: activeId,
+            view,
+            history: appendPage({items: [], cursor: 0, more: true}, items),
+          });
+      })
+      .catch((error) => {
+        if (!disposed && task.active) {
+          dispatch({type: 'failed', chatId: activeId, view});
+          notify(`Loading failed: ${describeError(error)}. Press r to retry.`, 'error');
+        }
+      })
+      .finally(task.finish);
+    return () => {
+      disposed = true;
+      task.cancelled = true;
+      task.finish();
+    };
+  }, [client, activeId, activeEntity, selfId, view, refresh, begin, notify]);
+
+  useEffect(() => {
+    if (initialization === 'ready' && !activeId && !state.query)
+      notify(
+        includePrivate ? 'No chats found.' : 'No groups or channels found. Press p to show private chats.',
+      );
+  }, [initialization, activeId, includePrivate, state.query, notify]);
+
+  const loadChats = async () => {
+    const pager = dialogPager.current;
+    if (!pager || !chatsMore) return;
+    const task = begin('Loading chats');
+    if (!task) return;
     try {
-      const next = await fetchPage(active, messages[messages.length - 1]!.id);
-      const seen = new Set(messages.map(message => message.id));
-      const unique = next.filter(item => !seen.has(item.id));
-      if (next.length === PAGE && !unique.length) throw new Error('Pagination did not advance; reload to retry.');
-      setMessages(prev => [...prev, ...unique]); setHasMore(next.length === PAGE);
-    } catch (e) {notify(`Loading failed: ${String(e)}`, 'error');}
-    finally {task.finish();}
+      const page = await pager.next(task);
+      if (!task.active) return;
+      dispatch({type: 'chats', chats: [...state.chats, ...page.chats]});
+      setChatsMore(page.more);
+      if (task.cancelled) notify('Stopped loading chats after the current request.', 'warning');
+    } catch (error) {
+      if (task.active) notify(`Chat loading failed: ${describeError(error)}`, 'error');
+    } finally {
+      task.finish();
+    }
   };
 
-  const markLoaded = () => {
-    const ids = ownMessageIds(messages);
-    setSelected(new Set(ids));
-  };
-
-  // Keep the scan in local collections; publish snapshots at most every 120 ms
-  // and always once on completion/cancellation, rather than cloning per page.
-  const loadHistory = async (selectOwn: boolean) => {
+  const markLoaded = () => dispatch({type: 'selection', ids: new Set(ownMessageIds(messages))});
+  const loadHistory = async (selectOwn: boolean, singlePage = false) => {
     if (!active) return;
     const task = begin(selectOwn ? 'Selecting' : 'Loading');
     if (!task) return;
-    setSelectAllPrompt(false);
-    const all = [...messages];
-    const seen = new Set(all.map(message => message.id));
-    const own = new Set(ownMessageIds(all));
-    let more = hasMore;
-    const publish = () => {
-      setMessages([...all]); setHasMore(more);
-      if (selectOwn) setSelected(new Set(own));
-    };
+    const chat = active;
+    const capturedView = view;
+    setPrompt({kind: 'none'});
+    let loaded = messages.length;
     try {
-      while (more && !task.cancelled) {
-        const next = await fetchPage(active, all[all.length - 1]?.id ?? 0);
-        let added = 0;
-        for (const item of next) if (!seen.has(item.id)) {
-          all.push(item); seen.add(item.id); added++;
-          if (item.own) own.add(item.id);
-        }
-        more = next.length === PAGE;
-        if (more && !added) throw new Error('Pagination did not advance; reload to retry.');
-        if (task.update(all.length)) publish();
-      }
-      if (task.cancelled) notify(`Stopped ${selectOwn ? 'selecting' : 'loading'} at ${all.length} loaded. Nothing deleted.`, 'warning');
-    } catch (e) {notify(`Stopped at ${all.length} loaded: ${String(e)}`, 'error');}
-    finally {publish(); task.finish();}
+      await loadMessageHistory(
+        history,
+        (cursor) => fetchPage(chat, cursor),
+        task,
+        (snapshot) => {
+          loaded = snapshot.items.length;
+          if (!task.active) return;
+          dispatch({
+            type: 'history',
+            chatId: chat.id,
+            view: capturedView,
+            history: snapshot,
+            ...(selectOwn ? {selected: selectedOwn(snapshot)} : {}),
+          });
+          task.update(loaded);
+        },
+        singlePage,
+      );
+      if (task.active && task.cancelled)
+        notify(
+          `Stopped ${selectOwn ? 'selecting' : 'loading'} at ${loaded} loaded. Nothing deleted.`,
+          'warning',
+        );
+    } catch (error) {
+      if (task.active) notify(`Stopped at ${loaded} loaded: ${describeError(error)}`, 'error');
+    } finally {
+      task.finish();
+    }
   };
 
-  // Mass deletion scans server-side with fromUser: me, independent of UI pagination.
   const scanAll = async () => {
     if (!active) return;
+    const chat = {...active};
     const task = begin('Scanning');
     if (!task) return;
-    const ids = new Set<number>();
     try {
-      for await (const msg of client.iterMessages(active.entity, {fromUser: 'me', limit: undefined})) {
-        if (task.cancelled) break;
-        ids.add(msg.id); task.update(ids.size);
+      const ids = await scanOwnMessages(client, chat.entity, task, (count) => task.update(count));
+      if (!task.active) return;
+      if (task.cancelled) {
+        notify(`Scan stopped at ${ids.length} found. Nothing deleted.`, 'warning');
+        return;
       }
-      if (task.cancelled) {notify(`Scan stopped at ${ids.size} found. Nothing deleted.`, 'warning'); return;}
-      notify(`Scan complete: ${ids.size} messages. Nothing deleted.`);
-      if (ids.size) {setConfirm({ids: [...ids], chat: active}); setConfirmationText('');}
-    } catch (e) {notify(`Scan failed; nothing deleted: ${String(e)}`, 'error');}
-    finally {task.finish();}
+      if (ids.length) setPrompt({kind: 'delete', ids, chat, scope: 'entire', text: ''});
+      else notify('Scan complete: 0 messages. Nothing deleted.');
+    } catch (error) {
+      if (task.active) notify(`Scan failed; nothing deleted: ${describeError(error)}`, 'error');
+    } finally {
+      task.finish();
+    }
   };
 
   const doDelete = async () => {
-    if (!confirm || confirmationText !== 'DELETE') return;
+    if (!confirm || confirm.text !== 'DELETE') return;
     const task = begin('Deleting');
     if (!task) return;
     const {ids, chat} = confirm;
-    setConfirm(null); setConfirmationText('');
-    let requested = 0;
-    let verified = 0;
-    let failure: unknown;
+    resolveValidation();
+    setPrompt({kind: 'none'});
     try {
-      for (let i = 0; i < ids.length && !task.cancelled; i += PAGE) {
-        const batch = ids.slice(i, i + PAGE);
-        await client.deleteMessages(chat.entity, batch, {revoke: true});
-        requested += batch.length;
-        task.update(requested, {total: ids.length, verified});
-        // Even after Esc, verify the in-flight batch before stopping.
-        const absent = new Set(await absentMessageIds(client, chat.entity, batch));
-        verified += absent.size;
-        setMessages(previous => previous.filter(message => !absent.has(message.id)));
-        setSelected(previous => new Set([...previous].filter(id => !absent.has(id))));
-        task.update(requested, {total: ids.length, verified});
-        if (absent.size !== batch.length) throw new Error('Some requested messages are still present; reload and verify before retrying.');
-      }
-    } catch (e) {failure = e;}
-    finally {
-      notify(`${task.cancelled ? 'Stopped. ' : ''}${requested} / ${ids.length} requested; ${verified} verified absent.${failure ? ` ${String(failure)} An unsuccessful request may still have taken effect.` : ''}`,
-        failure ? 'error' : task.cancelled ? 'warning' : 'result');
-      task.finish(); setRefresh(value => value + 1);
+      const result = await deleteOwnMessages(client, {entity: chat.entity, ids}, task, (absent, result) => {
+        if (!task.active) return;
+        dispatch({type: 'absent', chatId: chat.id, ids: absent});
+        task.update(result.requested, {total: result.total, verified: result.verified});
+      });
+      if (!task.active) return;
+      notify(deletionSummary(result), result.failure ? 'error' : result.cancelled ? 'warning' : 'result');
+      dispatch({type: 'selection', ids: new Set()});
+      setRefresh((value) => value + 1);
+    } finally {
+      task.finish();
     }
   };
 
   const widths = panelWidths(size.columns, chatPercent);
   const {width: lineWidth, leftWidth, rightWidth} = widths;
   const height = Math.max(1, size.rows - 1);
-  const confirmationHeight = confirm || selectAllPrompt ? 5 : 0;
+  const confirmLines = confirm ? confirmationLines(confirm, account, confirmationText, lineWidth) : [];
+  const measuredConfirmHeight = confirm
+    ? confirmationLines(confirm, account, 'X'.repeat(12), lineWidth).length
+    : 0;
+  const confirmationHeight = selectAllPrompt ? 5 : 0;
+  const searchLines =
+    search || state.query
+      ? wrapText(`Search loaded chats: ${state.query || '(empty)'}${search ? '_' : ''}`, lineWidth)
+      : [];
+  const accountLines = wrapText(`Account: ${account}`, lineWidth);
+  const chatStateLines = wrapText(
+    `Chats: ${state.chats.length} loaded; ${chatsMore ? 'more may be available (m)' : initialization === 'ready' ? 'exhausted' : initialization}`,
+    lineWidth,
+  );
+  const chromeHeight = 3 + accountLines.length + chatStateLines.length + searchLines.length;
   const footerState: FooterState = {
-    focus, busy: Boolean(progress), cancelling: Boolean(progress?.cancelling),
-    confirm: Boolean(confirm), canConfirm: confirmationText === 'DELETE', selectPrompt: selectAllPrompt,
-    hasChat: Boolean(active), canNavigate: focus === 'chats' ? chats.length > 1 : messages.length > 1,
-    canSelect: Boolean(messages[messageIndex]?.own), hasOwn: messages.some(message => message.own),
-    selected: selected.size, hasMore, includePrivate, hasNotice: Boolean(notice), confirmationText,
+    focus,
+    busy: Boolean(progress),
+    cancelling: Boolean(progress?.cancelling),
+    confirm: Boolean(confirm),
+    canConfirm: confirmationText === 'DELETE',
+    selectPrompt: selectAllPrompt,
+    hasChat: Boolean(active),
+    initialError: initialization === 'error',
+    chatsMore,
+    searching: Boolean(search),
+    canInspect: Boolean(messages[messageIndex]),
+    canNavigate: focus === 'chats' ? chats.length > 1 : messages.length > 1,
+    canSelect: Boolean(messages[messageIndex]),
+    hasOwn: messages.some((message) => message.own),
+    selected: selected.size,
+    hasMore,
+    includePrivate,
+    hasNotice: Boolean(notice),
+    confirmationText,
   };
-  // Reserve enough room for the complete prompt and all of its enabled keys.
-  const promptVisible = lineWidth >= 24 && height >= 3 + confirmationHeight +
-    legendRows(footerShortcuts({...footerState, canConfirm: Boolean(confirm)}), lineWidth).length;
+  const promptVisible =
+    lineWidth >= 24 &&
+    (confirm
+      ? height >=
+        measuredConfirmHeight +
+          legendRows(
+            footerShortcuts({...footerState, canConfirm: true, confirmationText: 'XXXXXXXXXXXX'}),
+            lineWidth,
+          ).length
+      : height >=
+        chromeHeight + confirmationHeight + legendRows(footerShortcuts(footerState), lineWidth).length);
   footerState.promptVisible = promptVisible;
   footerState.canConfirm &&= promptVisible;
   let footerRows = legendRows(footerShortcuts(footerState), lineWidth);
-  const legendFits = lineWidth >= 8 && height >= footerRows.length &&
-    footerRows.every(row => row.shortcuts.every(item => item.key.length <= lineWidth));
-  // If even the key names cannot fit, only these visible escape routes work.
-  if (!legendFits) footerRows = legendRows([{key: '?', label: 'Help'}, {key: 'Ctrl+C', label: 'Quit'}], lineWidth);
-  const baseHeight = 3 + footerRows.length; // title, panel heading, status, legend
+  const legendFits =
+    lineWidth >= 8 &&
+    height >= footerRows.length &&
+    footerRows.every((row) => row.shortcuts.every((item) => item.key.length <= lineWidth));
+  if (!legendFits)
+    footerRows = legendRows(
+      [
+        {key: '?', label: 'Help'},
+        {key: 'Ctrl+C', label: 'Quit'},
+      ],
+      lineWidth,
+    );
+  // The busy legend has fewer bindings. Keep the idle legend's space reserved
+  // so fetching a chat's messages cannot grow/shrink the list viewport.
+  const footerHeight = Math.min(
+    height,
+    Math.max(
+      footerRows.length,
+      progress ? legendRows(footerShortcuts({...footerState, busy: false}), lineWidth).length : 0,
+    ),
+  );
+  const baseHeight = chromeHeight + footerHeight;
   const listHeight = Math.max(0, height - baseHeight - confirmationHeight);
-  const footer = <ShortcutLegend width={lineWidth} rows={footerRows}/>;
+  const footer = (
+    <Box
+      height={footerHeight}
+      flexShrink={0}
+      flexDirection="column"
+      justifyContent="flex-end"
+      overflow="hidden"
+    >
+      <ShortcutLegend width={lineWidth} rows={footerRows} />
+    </Box>
+  );
 
   useInput((input, key) => {
-    if (helpOpen) return;
-    if (input === '?') {setHelpOpen(true); return;}
+    if (helpOpen || noticeOpen || detail) return;
+    const command = commandFor(input, key, footerState);
+    if (command === 'help') {
+      setHelpOpen(true);
+      return;
+    }
+    if (command === 'searchCancel' && search) {
+      dispatch({type: 'query', query: search.original});
+      setSearch(null);
+      return;
+    }
+    if (command === 'cancelPrompt') {
+      setPrompt({kind: 'none'});
+      return;
+    }
     if (!legendFits) return;
+    if (search) {
+      if (command === 'searchApply') setSearch(null);
+      if (command === 'searchBackspace') dispatch({type: 'query', query: state.query.slice(0, -1)});
+      if (command === 'searchEdit')
+        dispatch({
+          type: 'query',
+          query: (state.query + input.replace(/[\x00-\x1f\x7f-\x9f]/g, '')).slice(0, 120),
+        });
+      return;
+    }
     if (selectAllPrompt) {
-      if (key.escape || input.toLowerCase() === 'c') {setSelectAllPrompt(false); return;}
-      if (!promptVisible) return;
-      if (input.toLowerCase() === 'n') {setSelectAllPrompt(false); markLoaded(); return;}
-      if (input.toLowerCase() === 'y') {void loadHistory(true); return;}
+      if (command === 'selectLoaded') {
+        setPrompt({kind: 'none'});
+        markLoaded();
+      }
+      if (command === 'selectRemaining') void loadHistory(true);
       return;
     }
     if (confirm) {
-      if (key.escape) {setConfirm(null); setConfirmationText(''); return;}
-      // Never accept a destructive confirmation while its context is hidden by
-      // the small-terminal fallback. Help and cancellation still work.
-      if (!promptVisible) return;
-      if (key.return) {
+      if (command === 'confirmSubmit') {
         if (confirmationText === 'DELETE') void doDelete();
-        else notify('Enter exactly DELETE to confirm.', 'warning');
-        return;
+        else notify('Enter exactly DELETE to confirm.', 'warning', 'validation');
       }
-      if (key.backspace || key.delete) setConfirmationText(t => t.slice(0, -1));
-      else if (/^[a-zA-Z]$/.test(input)) setConfirmationText(t => (t + input).slice(0, 12));
+      if (command === 'confirmBackspace') setPrompt({...confirm, text: confirmationText.slice(0, -1)});
+      if (command === 'confirmEdit') setPrompt({...confirm, text: (confirmationText + input).slice(0, 12)});
       return;
     }
     if (busyRef.current) {
-      if (key.escape) {dismissNotice(); cancel();}
+      if (command === 'cancelOperation') cancel();
       return;
     }
-    if (key.escape) {dismissNotice(); return;}
-    if (input === '[' || input === ']' || input === '0') {
-      setChatPercent(previous => {
-        const next = adjustChatPercent(previous, input);
-        saveChatPercent(next);
-        return next;
-      });
-      return;
-    }
-    if (input === 'q') {exit(); return;}
-    if (input === 'p') {
-      const nextIncludePrivate = !includePrivate;
-      const nextChats = nextIncludePrivate ? allChats : allChats.filter(chat => !chat.isPrivate);
-      const nextIndex = Math.max(0, nextChats.findIndex(chat => chat.id === active?.id));
-      setIncludePrivate(nextIncludePrivate);
-      setChatIndex(nextIndex);
-      if (nextChats[nextIndex]?.id !== active?.id) {
-        setMessages([]); setSelected(new Set()); setMessageIndex(0); setHasMore(false);
+    switch (command) {
+      case 'help':
+        setHelpOpen(true);
+        break;
+      case 'quit':
+        exit();
+        break;
+      case 'notice':
+        setNoticeOpen(true);
+        break;
+      case 'dismiss':
+        dismissNotice();
+        break;
+      case 'width':
+      case 'reset':
+        setChatPercent((previous) => adjustChatPercent(previous, input as '[' | ']' | '0'));
+        break;
+      case 'private':
+        dispatch({type: 'private'});
+        break;
+      case 'view':
+        dispatch({type: 'view'});
+        break;
+      case 'clear':
+        dispatch({type: 'selection', ids: new Set()});
+        break;
+      case 'focus':
+        setFocus((previous) => (previous === 'chats' ? 'messages' : 'chats'));
+        break;
+      case 'up':
+      case 'page':
+      case 'ends': {
+        const count = focus === 'chats' ? chats.length : messages.length;
+        const index = focus === 'chats' ? chatIndex : messageIndex;
+        const delta =
+          (key.upArrow || key.pageUp || input === 'k' ? -1 : 1) *
+          (command === 'page' ? Math.max(1, listHeight) : 1);
+        const next = key.home ? 0 : key.end ? count - 1 : Math.max(0, Math.min(count - 1, index + delta));
+        if (focus === 'chats') dispatch({type: 'active', id: chats[next]?.id});
+        else dispatch({type: 'index', index: next});
+        break;
       }
-      if (!nextChats.length) notify(nextIncludePrivate ? 'No chats found.' : 'No groups or channels found. Press p to show private chats.');
-      return;
-    }
-    if (input === 'c') {
-      setSelected(new Set());
-      return;
-    }
-    if (input === 'v') {
-      setSelected(new Set()); setMessages([]); setMessageIndex(0); setHasMore(false);
-      setView(previous => previous === 'mine' ? 'all' : 'mine');
-      return;
-    }
-    if (key.tab || key.leftArrow || key.rightArrow) {setFocus(f => f === 'chats' ? 'messages' : 'chats'); return;}
-    if (key.upArrow || input === 'k') {
-      if (focus === 'chats') setChatIndex(i => Math.max(0, i - 1));
-      else setMessageIndex(i => Math.max(0, i - 1));
-      return;
-    }
-    if (key.downArrow || input === 'j') {
-      if (focus === 'chats') setChatIndex(i => Math.max(0, Math.min(chats.length - 1, i + 1)));
-      else setMessageIndex(i => Math.max(0, Math.min(messages.length - 1, i + 1)));
-      return;
-    }
-    if (input === 'r') {setRefresh(n => n + 1); return;}
-    if (input === 'A') {void scanAll(); return;}
-    if (input === 's' && focus === 'messages') {
-      if (hasMore) setSelectAllPrompt(true);
-      else markLoaded();
-      return;
-    }
-    if (focus !== 'messages') return;
-    if (input === ' ' && messages[messageIndex]) {
-      if (!messages[messageIndex]!.own) {notify('Only your own messages can be marked for deletion.'); return;}
-      const id = messages[messageIndex]!.id;
-      setSelected(prev => {const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next;});
-    }
-    if (input === 'n') void loadMore();
-    if (input === 'L') void loadHistory(false);
-    if (input === 'd' && selected.size && active) {
-      const ids = ownMessageIds(messages, selected);
-      if (ids.length) {setConfirm({ids, chat: active}); setConfirmationText('');}
+      case 'reload':
+        if (initialization === 'error') {
+          dismissNotice();
+          setRetry((value) => value + 1);
+        } else {
+          dispatch({type: 'reload'});
+          setRefresh((value) => value + 1);
+        }
+        break;
+      case 'search':
+        setSearch({original: state.query});
+        break;
+      case 'chats':
+        setRetry((value) => value + 1);
+        break;
+      case 'moreChats':
+        void loadChats();
+        break;
+      case 'detail':
+        setDetail(messages[messageIndex] ?? null);
+        break;
+      case 'scan':
+        void scanAll();
+        break;
+      case 'select':
+        if (hasMore) setPrompt({kind: 'select'});
+        else markLoaded();
+        break;
+      case 'mark': {
+        const message = messages[messageIndex];
+        if (!message?.own) {
+          notify('Only your own messages can be marked for deletion.');
+          break;
+        }
+        const next = new Set(selected);
+        if (next.has(message.id)) next.delete(message.id);
+        else next.add(message.id);
+        dispatch({type: 'selection', ids: next});
+        break;
+      }
+      case 'next':
+        void loadHistory(false, true);
+        break;
+      case 'load':
+        void loadHistory(false);
+        break;
+      case 'delete': {
+        const ids = ownMessageIds(messages, selected);
+        if (ids.length && active)
+          setPrompt({kind: 'delete', ids, chat: {...active}, scope: 'selected', text: ''});
+        break;
+      }
     }
   });
 
   const chatStart = Math.max(0, chatIndex - listHeight + 1);
   const messageStart = Math.max(0, messageIndex - listHeight + 1);
-  const visibleChats = chats.slice(chatStart, chatStart + listHeight);
-  const visibleMessages = messages.slice(messageStart, messageStart + listHeight);
-  const header = (title: string, panel: Focus, width: number) =>
-    <Row width={width} backgroundColor={focus === panel ? 'blueBright' : undefined}
-      color={focus === panel ? 'black' : 'white'} bold>
+  const header = (title: string, panel: Focus, width: number) => (
+    <Row
+      width={width}
+      backgroundColor={focus === panel ? 'blueBright' : undefined}
+      color={focus === panel ? 'black' : 'white'}
+      bold
+    >
       {`${focus === panel ? '[ACTIVE]' : '[      ]'} ${title}`}
-    </Row>;
-
-  const statusBar = <StatusBar width={lineWidth} view={view} loaded={messages.length} hasMore={hasMore}
-    selected={selected.size} progress={progress} notice={notice}/>;
-
-  if (helpOpen) return <Help width={lineWidth} height={height} onClose={() => setHelpOpen(false)}/>;
-  if (height < baseHeight + confirmationHeight || lineWidth < 24 || !promptVisible) {
-    return <Box width={lineWidth} height={height} flexDirection="column" overflow="hidden">
-      <Box height={Math.max(0, height - footerRows.length - 1)} flexShrink={0} flexDirection="column" overflow="hidden">
-        <Row width={lineWidth} color="yellowBright">Enlarge the terminal to show the interface.</Row>
+    </Row>
+  );
+  const statusBar = (
+    <StatusBar
+      width={lineWidth}
+      view={view}
+      loaded={messages.length}
+      hasMore={hasMore}
+      selected={selected.size}
+      progress={progress}
+      notice={notice}
+    />
+  );
+  if (detail)
+    return (
+      <Reader
+        title={`MESSAGE ${detail.id} · Read only`}
+        text={`${detail.author} · ${detail.date}\n${detail.content}`}
+        width={lineWidth}
+        height={height}
+        onClose={() => setDetail(null)}
+      />
+    );
+  if (noticeOpen && notice)
+    return (
+      <Reader
+        title="NOTICE DETAILS"
+        text={notice.text}
+        width={lineWidth}
+        height={height}
+        onClose={() => setNoticeOpen(false)}
+      />
+    );
+  if (helpOpen) return <Help width={lineWidth} height={height} onClose={() => setHelpOpen(false)} />;
+  if (confirm && promptVisible)
+    return (
+      <Box width={lineWidth} height={height} flexDirection="column" overflow="hidden">
+        <Confirmation lines={confirmLines} width={lineWidth} />
+        <Box flexGrow={1} />
+        {footer}
       </Box>
-      {height > footerRows.length && statusBar}
+    );
+  if (height < baseHeight + confirmationHeight || lineWidth < 24 || !promptVisible)
+    return (
+      <Box width={lineWidth} height={height} flexDirection="column" overflow="hidden">
+        <Box
+          height={Math.max(0, height - footerHeight - 1)}
+          flexShrink={0}
+          flexDirection="column"
+          overflow="hidden"
+        >
+          <Row width={lineWidth} color="yellowBright">
+            Enlarge the terminal to show the interface.
+          </Row>
+        </Box>
+        {height > footerHeight && statusBar}
+        {footer}
+      </Box>
+    );
+  return (
+    <Box flexDirection="column" width={lineWidth} height={height} overflow="hidden">
+      <Row width={lineWidth} bold color="white">{`TG MANAGER / ${active?.title || 'Select chat'}`}</Row>
+      {accountLines.map((line, index) => (
+        <Row key={`account-${index}`} width={lineWidth}>
+          {line}
+        </Row>
+      ))}
+      {chatStateLines.map((line, index) => (
+        <Row key={`chats-${index}`} width={lineWidth}>
+          {line}
+        </Row>
+      ))}
+      {searchLines.map((line, index) => (
+        <Row key={index} width={lineWidth} color="cyanBright">
+          {line}
+        </Row>
+      ))}
+      <Panels
+        widths={widths}
+        height={listHeight + 1}
+        chats={
+          <>
+            {header(
+              `${includePrivate ? 'ALL CHATS' : 'GROUPS/CHANNELS'} (${chats.length})`,
+              'chats',
+              leftWidth,
+            )}
+            {chats.slice(chatStart, chatStart + listHeight).map((chat) => {
+              const current = chat.id === active?.id;
+              return (
+                <Row
+                  key={chat.id}
+                  width={leftWidth}
+                  bold={current && focus === 'chats'}
+                  color={current && focus === 'chats' ? 'black' : current ? 'yellowBright' : 'white'}
+                  backgroundColor={current && focus === 'chats' ? 'yellowBright' : undefined}
+                >{`${current ? '>' : ' '} ${chat.title}`}</Row>
+              );
+            })}
+            {!chats.length && listHeight > 0 && (
+              <Row width={leftWidth}>
+                {initialization === 'loading'
+                  ? 'Loading chats…'
+                  : initialization === 'error'
+                    ? 'Loading failed; r Retry'
+                    : state.query
+                      ? 'No matching loaded chats'
+                      : includePrivate
+                        ? 'No chats'
+                        : 'No groups/channels'}
+              </Row>
+            )}
+          </>
+        }
+        messages={
+          <>
+            {header(
+              `MESSAGES [${view.toUpperCase()}] (${messages.length}) MARKED ${selected.size} — ${active?.title ?? 'No chat'}`,
+              'messages',
+              rightWidth,
+            )}
+            {messages.slice(messageStart, messageStart + listHeight).map((message, index) => {
+              const current = messageStart + index === messageIndex;
+              const checked = selected.has(message.id);
+              return (
+                <Row
+                  key={message.id}
+                  width={rightWidth}
+                  bold={current && focus === 'messages'}
+                  color={
+                    current && focus === 'messages'
+                      ? 'black'
+                      : current
+                        ? 'yellowBright'
+                        : checked
+                          ? 'greenBright'
+                          : 'white'
+                  }
+                  backgroundColor={current && focus === 'messages' ? 'yellowBright' : undefined}
+                >
+                  {`${current ? '>' : ' '} ${message.own ? (checked ? '[x]' : '[ ]') : '[-]'} ${message.author}: ${message.date} ${message.content}`}
+                </Row>
+              );
+            })}
+            {!messages.length && listHeight > 0 && (
+              <Row width={rightWidth}>
+                {state.messageStatus === 'loading'
+                  ? 'Loading messages…'
+                  : state.messageStatus === 'error'
+                    ? 'Loading failed; r Retry'
+                    : 'No messages'}
+              </Row>
+            )}
+          </>
+        }
+      />
+      {selectAllPrompt && (
+        <Box
+          height={confirmationHeight}
+          flexShrink={0}
+          flexDirection="column"
+          borderColor="cyanBright"
+          borderStyle="single"
+          overflow="hidden"
+        >
+          <Row
+            width={Math.max(0, lineWidth - 2)}
+            bold
+            color="cyanBright"
+          >{`SELECT OWN: ${messages.length} messages are loaded.`}</Row>
+          <Row width={Math.max(0, lineWidth - 2)}>
+            Load the rest of this view and select only your own messages?
+          </Row>
+          <Row width={Math.max(0, lineWidth - 2)} color="yellowBright">
+            Y: load and select own · N: loaded own · Esc: cancel
+          </Row>
+        </Box>
+      )}
+      {statusBar}
       {footer}
-    </Box>;
-  }
-
-  return <Box flexDirection="column" width={lineWidth} height={height} overflow="hidden">
-    <Row width={lineWidth} bold color="white">{`TG MANAGER / ${active?.title || 'Select chat'}`}</Row>
-    <Panels widths={widths} height={listHeight + 1}
-      chats={<>
-        {header(`${includePrivate ? 'ALL CHATS' : 'GROUPS/CHANNELS'} (${chats.length})`, 'chats', leftWidth)}
-        {visibleChats.map((chat, i) => {
-          const current = chatStart + i === chatIndex;
-          const focused = focus === 'chats';
-          return <Row key={chat.id} width={leftWidth} bold={current && focused}
-            color={current && focused ? 'black' : current ? 'yellowBright' : 'white'}
-            backgroundColor={current && focused ? 'yellowBright' : undefined}>
-            {`${current ? '>' : ' '} ${chat.title}`}
-          </Row>;
-        })}
-        {!chats.length && listHeight > 0 && <Row width={leftWidth} color="white">{includePrivate ? 'No chats' : 'No groups/channels'}</Row>}
-      </>}
-      messages={<>
-        {header(`MESSAGES [${view.toUpperCase()}] (${messages.length}) MARKED ${selected.size} — ${active?.title ?? 'No chat'}`, 'messages', rightWidth)}
-        {visibleMessages.map((message, i) => {
-          const current = messageStart + i === messageIndex;
-          const focused = focus === 'messages';
-          const checked = selected.has(message.id);
-          const line = `${current ? '>' : ' '} ${message.own ? checked ? '[x]' : '[ ]' : '[-]'} ${message.author}: ${message.date} ${message.content}`;
-          return <Row key={message.id} width={rightWidth} bold={current && focused}
-            color={current && focused ? 'black' : current ? 'yellowBright' : checked ? 'greenBright' : 'white'}
-            backgroundColor={current && focused ? 'yellowBright' : undefined}>
-            {line}
-          </Row>;
-        })}
-        {!messages.length && listHeight > 0 && <Row width={rightWidth} color="white">No messages</Row>}
-      </>}/>
-    {selectAllPrompt && <Box height={confirmationHeight} flexShrink={0} flexDirection="column" borderColor="cyanBright" borderStyle="single" overflow="hidden">
-      <Row width={Math.max(0, lineWidth - 2)} bold color="cyanBright">{`SELECT OWN: ${messages.length} messages are loaded.`}</Row>
-      <Row width={Math.max(0, lineWidth - 2)} color="white">Load the rest of this view and select only your own messages?</Row>
-      <Row width={Math.max(0, lineWidth - 2)} color="yellowBright">Y: load and select own · N: loaded own · Esc: cancel</Row>
-    </Box>}
-    {confirm && <Box height={confirmationHeight} flexShrink={0} flexDirection="column" borderColor="redBright" borderStyle="double" overflow="hidden">
-      <Row width={Math.max(0, lineWidth - 2)} bold color="redBright">{`DELETE ${confirm.ids.length} of YOUR messages in ${confirm.chat.title}?`}</Row>
-      <Row width={Math.max(0, lineWidth - 2)} color="white">Deletion can affect other participants and cannot be undone.</Row>
-      <Row width={Math.max(0, lineWidth - 2)} color="yellowBright">{`Type DELETE and Enter (Esc to cancel): ${confirmationText}_`}</Row>
-    </Box>}
-    {statusBar}
-    {footer}
-  </Box>;
+    </Box>
+  );
 }

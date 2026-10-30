@@ -24,14 +24,23 @@ export class TerminalOutput extends Writable {
   private background = '\x1b[49m';
   private readonly onResize = () => this.emit('resize');
 
-  constructor(private readonly terminal: TerminalStream, options?: WritableOptions) {
+  constructor(
+    private readonly terminal: TerminalStream,
+    options?: WritableOptions,
+  ) {
     super(options);
     terminal.on('resize', this.onResize);
   }
 
-  get isTTY() {return this.terminal.isTTY ?? false;}
-  get columns() {return this.terminal.columns;}
-  get rows() {return this.terminal.rows;}
+  get isTTY() {
+    return this.terminal.isTTY ?? false;
+  }
+  get columns() {
+    return this.terminal.columns;
+  }
+  get rows() {
+    return this.terminal.rows;
+  }
 
   private text(value: string): string {
     if (/^[\x20-\x7e]*$/u.test(value)) {
@@ -78,7 +87,8 @@ export class TerminalOutput extends Writable {
         for (let index = 0; index < parameters.length; index++) {
           const code = parameters[index];
           if (code === 0 || code === 49) this.background = '\x1b[49m';
-          else if ((code! >= 40 && code! <= 47) || (code! >= 100 && code! <= 107)) this.background = `\x1b[${code}m`;
+          else if ((code! >= 40 && code! <= 47) || (code! >= 100 && code! <= 107))
+            this.background = `\x1b[${code}m`;
           else if (code === 38 || code === 48) {
             const length = parameters[index + 1] === 2 ? 5 : 3;
             if (code === 48) this.background = `\x1b[${parameters.slice(index, index + length).join(';')}m`;
@@ -86,11 +96,25 @@ export class TerminalOutput extends Writable {
           }
         }
         break;
-      case 'G': case '`': this.column = count - 1; break;
-      case 'H': case 'f': this.column = (parameters[1] || 1) - 1; break;
-      case 'C': case 'a': this.column += count; break;
-      case 'D': this.column = Math.max(0, this.column - count); break;
-      case 'E': case 'F': this.column = 0; break;
+      case 'G':
+      case '`':
+        this.column = count - 1;
+        break;
+      case 'H':
+      case 'f':
+        this.column = (parameters[1] || 1) - 1;
+        break;
+      case 'C':
+      case 'a':
+        this.column += count;
+        break;
+      case 'D':
+        this.column = Math.max(0, this.column - count);
+        break;
+      case 'E':
+      case 'F':
+        this.column = 0;
+        break;
     }
   }
 

@@ -43,20 +43,38 @@ class Screen extends Writable {
 }
 
 function write(stream: NodeJS.WritableStream, data: string) {
-  return new Promise<void>((resolve, reject) => stream.write(data, error => error ? reject(error) : resolve()));
+  return new Promise<void>((resolve, reject) =>
+    stream.write(data, (error) => (error ? reject(error) : resolve())),
+  );
 }
 
 function fixture(title: string, leftWidth: number, selected = true) {
-  return renderToString(<Panels widths={{width: 79, leftWidth, separatorWidth: 1, rightWidth: 78 - leftWidth}} height={2}
-    chats={<>
-      <Row width={leftWidth} backgroundColor={selected ? 'yellowBright' : undefined} color="black" bold>{`> ${title}`}</Row>
-      <Row width={leftWidth}>Plain chat</Row>
-    </>}
-    messages={<Row width={78 - leftWidth}>Messages</Row>}/>, {columns: 80});
+  return renderToString(
+    <Panels
+      widths={{width: 79, leftWidth, separatorWidth: 1, rightWidth: 78 - leftWidth}}
+      height={2}
+      chats={
+        <>
+          <Row
+            width={leftWidth}
+            backgroundColor={selected ? 'yellowBright' : undefined}
+            color="black"
+            bold
+          >{`> ${title}`}</Row>
+          <Row width={leftWidth}>Plain chat</Row>
+        </>
+      }
+      messages={<Row width={78 - leftWidth}>Messages</Row>}
+    />,
+    {columns: 80},
+  );
 }
 
 test('reproduces the old test blind spot: Ink output alone does not fix the physical divider column', async () => {
-  for (const [profile, expected] of [['6', 23], ['15', 25]] as const) {
+  for (const [profile, expected] of [
+    ['6', 23],
+    ['15', 25],
+  ] as const) {
     const emulator = terminal(profile);
     const screen = new Screen(emulator);
     try {
@@ -66,7 +84,10 @@ test('reproduces the old test blind spot: Ink output alone does not fix the phys
       const line = emulator.buffer.active.getLine(0)!;
       const divider = Array.from({length: 80}, (_, column) => line.getCell(column)!.getChars()).indexOf('|');
       assert.equal(divider, expected, 'physical terminal advance can differ in either direction');
-    } finally {screen.destroy(); emulator.dispose();}
+    } finally {
+      screen.destroy();
+      emulator.dispose();
+    }
   }
 });
 
@@ -80,12 +101,23 @@ for (const profile of ['6', '15', '15-graphemes'] as const) {
         for (const selected of [false, true]) {
           await write(output, '\x1b[H\x1b[2J' + fixture('Sample✈️', width, selected));
           const row = emulator.buffer.active.getLine(0)!;
-          assert.equal(row.getCell(width)!.getChars(), '|', 'separator must be at its actual terminal column');
+          assert.equal(
+            row.getCell(width)!.getChars(),
+            '|',
+            'separator must be at its actual terminal column',
+          );
           assert.equal(emulator.buffer.active.getLine(1)!.getCell(width)!.getChars(), '|');
-          assert.ok(screen.chunks.at(-1)!.includes('✈️'), 'emit the complete airplane and its selector without an intervening escape');
+          assert.ok(
+            screen.chunks.at(-1)!.includes('✈️'),
+            'emit the complete airplane and its selector without an intervening escape',
+          );
           assert.equal(row.getCell(8)!.getChars(), profile === '15' ? '✈' : '✈️');
           for (let column = 0; column < width; column++) {
-            assert.equal(row.getCell(column)!.getBgColor(), selected ? 11 : -1, `background at cell ${column}`);
+            assert.equal(
+              row.getCell(column)!.getBgColor(),
+              selected ? 11 : -1,
+              `background at cell ${column}`,
+            );
           }
           assert.equal(row.getCell(width)!.getBgColor(), -1);
           assert.equal(row.getCell(width + 1)!.getChars(), 'M');
@@ -122,13 +154,21 @@ test('all required emoji stay aligned in a terminal with grapheme support', asyn
 
 test('redirected output remains unchanged', async () => {
   const chunks: string[] = [];
-  const target = new Writable({write(chunk, _encoding, callback) {chunks.push(chunk.toString()); callback();}});
+  const target = new Writable({
+    write(chunk, _encoding, callback) {
+      chunks.push(chunk.toString());
+      callback();
+    },
+  });
   const output = new TerminalOutput(target);
   const value = '\x1b[103mSample✈️\x1b[49m\n';
   try {
     await write(output, value);
     assert.equal(chunks.join(''), value);
-  } finally {output.destroy(); target.destroy();}
+  } finally {
+    output.destroy();
+    target.destroy();
+  }
 });
 
 test('terminal output tracks cursor movements and redraws without shifting emoji rows', async () => {
@@ -141,7 +181,11 @@ test('terminal output tracks cursor movements and redraws without shifting emoji
       await write(output, prefix + fixture('Sample✈️', 24));
       assert.equal(emulator.buffer.active.getLine(0)!.getCell(24)!.getChars(), '|');
     }
-  } finally {output.destroy(); screen.destroy(); emulator.dispose();}
+  } finally {
+    output.destroy();
+    screen.destroy();
+    emulator.dispose();
+  }
 });
 
 test('an airplane at the right panel edge keeps its background without wrapping or painting outside the row', async () => {
@@ -150,9 +194,19 @@ test('an airplane at the right panel edge keeps its background without wrapping 
     const screen = new Screen(emulator);
     const output = new TerminalOutput(screen);
     try {
-      const raw = renderToString(<Panels widths={{width: 29, leftWidth: 12, rightWidth: 16, separatorWidth: 1}} height={1}
-        chats={<Row width={12}>Chat</Row>}
-        messages={<Row width={16} backgroundColor="yellowBright">12345678901234✈️</Row>}/>, {columns: 30});
+      const raw = renderToString(
+        <Panels
+          widths={{width: 29, leftWidth: 12, rightWidth: 16, separatorWidth: 1}}
+          height={1}
+          chats={<Row width={12}>Chat</Row>}
+          messages={
+            <Row width={16} backgroundColor="yellowBright">
+              12345678901234✈️
+            </Row>
+          }
+        />,
+        {columns: 30},
+      );
       await write(output, raw);
       const row = emulator.buffer.active.getLine(0)!;
       assert.equal(row.getCell(12)!.getChars(), '|');
@@ -160,16 +214,26 @@ test('an airplane at the right panel edge keeps its background without wrapping 
       assert.equal(row.getCell(29)!.getBgColor(), -1, 'reserved terminal column stays unhighlighted');
       assert.equal(emulator.buffer.active.cursorY, 0, 'wide glyph does not wrap into another row');
       assert.ok(screen.chunks.join('').includes('✈️'));
-    } finally {output.destroy(); screen.destroy(); emulator.dispose();}
+    } finally {
+      output.destroy();
+      screen.destroy();
+      emulator.dispose();
+    }
   }
 });
 
 test('live resize and selection redraw correctly in the actual terminal buffer', async () => {
   class Input extends PassThrough {
     isTTY = true;
-    setRawMode() {return this;}
-    ref() {return this;}
-    unref() {return this;}
+    setRawMode() {
+      return this;
+    }
+    ref() {
+      return this;
+    }
+    unref() {
+      return this;
+    }
   }
   const emulator = terminal('15');
   const screen = new Screen(emulator);
@@ -181,34 +245,68 @@ test('live resize and selection redraw correctly in the actual terminal buffer',
     const [selected, setSelected] = useState(0);
     const widths = panelWidths(columns, percent);
     useInput((input, key) => {
-      if (input === '[' || input === ']' || input === '0') setPercent(previous => adjustChatPercent(previous, input));
-      if (key.downArrow) setSelected(previous => 1 - previous);
+      if (input === '[' || input === ']' || input === '0')
+        setPercent((previous) => adjustChatPercent(previous, input));
+      if (key.downArrow) setSelected((previous) => 1 - previous);
     });
-    return <Box height={rows - 1} width={widths.width} flexDirection="column">
-      <Row width={widths.width}>{`SIZE ${columns}x${rows}/${percent}/${selected}`}</Row>
-      <Panels widths={widths} height={rows - 2}
-        chats={['Sample✈️', 'Sample🛫'].map((title, index) => <Row key={title} width={widths.leftWidth}
-          backgroundColor={index === selected ? 'yellowBright' : undefined}>{`> ${title}`}</Row>)}
-        messages={<Row width={widths.rightWidth}>Messages ✈️</Row>}/>
-    </Box>;
+    return (
+      <Box height={rows - 1} width={widths.width} flexDirection="column">
+        <Row width={widths.width}>{`SIZE ${columns}x${rows}/${percent}/${selected}`}</Row>
+        <Panels
+          widths={widths}
+          height={rows - 2}
+          chats={['Sample✈️', 'Sample🛫'].map((title, index) => (
+            <Row
+              key={title}
+              width={widths.leftWidth}
+              backgroundColor={index === selected ? 'yellowBright' : undefined}
+            >{`> ${title}`}</Row>
+          ))}
+          messages={<Row width={widths.rightWidth}>Messages ✈️</Row>}
+        />
+      </Box>
+    );
   }
-  const instance = render(<App/>, {stdout: output, stdin, stderr: new PassThrough(),
-    interactive: true, alternateScreen: true, maxFps: 0, patchConsole: false, kittyKeyboard: {mode: 'disabled'}});
+  const instance = render(<App />, {
+    stdout: output,
+    stdin,
+    stderr: new PassThrough(),
+    interactive: true,
+    alternateScreen: true,
+    maxFps: 0,
+    patchConsole: false,
+    kittyKeyboard: {mode: 'disabled'},
+  });
   async function check(percent: number, selected: number) {
     // Ink's commit and the terminal parser are separate queues; flush both.
     for (let attempt = 0; attempt < 100; attempt++) {
-      await new Promise(resolve => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
       await instance.waitUntilRenderFlush();
       await write(output, '');
-      if (emulator.buffer.active.getLine(0)!.translateToString(true).startsWith(`SIZE ${screen.columns}x${screen.rows}/${percent}/${selected}`)) break;
+      if (
+        emulator.buffer.active
+          .getLine(0)!
+          .translateToString(true)
+          .startsWith(`SIZE ${screen.columns}x${screen.rows}/${percent}/${selected}`)
+      )
+        break;
     }
-    assert.ok(emulator.buffer.active.getLine(0)!.translateToString(true).startsWith(`SIZE ${screen.columns}x${screen.rows}/${percent}/${selected}`));
+    assert.ok(
+      emulator.buffer.active
+        .getLine(0)!
+        .translateToString(true)
+        .startsWith(`SIZE ${screen.columns}x${screen.rows}/${percent}/${selected}`),
+    );
     const {leftWidth} = panelWidths(screen.columns, percent);
     for (let rowIndex = 1; rowIndex < screen.rows - 1; rowIndex++) {
       const row = emulator.buffer.active.getLine(rowIndex)!;
       assert.equal(row.getCell(leftWidth)!.getChars(), '|');
       for (let column = 0; column < leftWidth; column++) {
-        assert.equal(row.getCell(column)!.getBgColor(), rowIndex === selected + 1 ? 11 : -1, 'no stale selection in terminal buffer');
+        assert.equal(
+          row.getCell(column)!.getBgColor(),
+          rowIndex === selected + 1 ? 11 : -1,
+          'no stale selection in terminal buffer',
+        );
       }
     }
     assert.equal(emulator.buffer.active.baseY, 0);
@@ -219,7 +317,12 @@ test('live resize and selection redraw correctly in the actual terminal buffer',
     await check(34, 0);
     stdin.write('\x1b[B');
     await check(34, 1);
-    for (const [columns, rows] of [[60, 12], [40, 8], [110, 28], [80, 16]]) {
+    for (const [columns, rows] of [
+      [60, 12],
+      [40, 8],
+      [110, 28],
+      [80, 16],
+    ]) {
       screen.resize(columns!, rows!);
       await check(34, 1);
     }

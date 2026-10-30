@@ -19,31 +19,47 @@ export function testTerminal(node: ReactNode, options: {columns?: number; rows?:
   }
   class Input extends PassThrough {
     isTTY = true;
-    setRawMode() {return this;}
-    ref() {return this;}
-    unref() {return this;}
+    setRawMode() {
+      return this;
+    }
+    ref() {
+      return this;
+    }
+    unref() {
+      return this;
+    }
   }
   const stdout = new Output();
   const stdin = new Input();
   const stderr = new PassThrough();
-  const instance = render(node, {stdout, stdin, stderr, interactive: true, debug: true,
-    patchConsole: false, maxFps: 0, kittyKeyboard: {mode: 'disabled'}});
+  const instance = render(node, {
+    stdout,
+    stdin,
+    stderr,
+    interactive: true,
+    debug: true,
+    patchConsole: false,
+    maxFps: 0,
+    kittyKeyboard: {mode: 'disabled'},
+  });
   const frame = () => frames.at(-1) ?? '';
   return {
-    frames, frame, instance,
+    frames,
+    frame,
+    instance,
     async press(value: string) {
       stdin.write(value);
       // Ink waits briefly to distinguish standalone Esc from a split terminal
       // escape sequence. Let it emit that key before sending the next input.
       if (value === '\x1b') await setTimeout(30);
-      await new Promise(resolve => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
       await instance.waitUntilRenderFlush();
     },
     async resize(columns: number, rows: number) {
       stdout.columns = columns;
       stdout.rows = rows;
       stdout.emit('resize');
-      await new Promise(resolve => setImmediate(resolve));
+      await new Promise((resolve) => setImmediate(resolve));
       await instance.waitUntilRenderFlush();
     },
     async waitFor(predicate: (frame: string) => boolean) {
@@ -57,7 +73,9 @@ export function testTerminal(node: ReactNode, options: {columns?: number; rows?:
       instance.unmount();
       await instance.waitUntilExit();
       instance.cleanup();
-      stdin.destroy(); stdout.destroy(); stderr.destroy();
+      stdin.destroy();
+      stdout.destroy();
+      stderr.destroy();
     },
   };
 }

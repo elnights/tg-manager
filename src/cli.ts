@@ -28,10 +28,12 @@ Use --config, export TG_API_ID/TG_API_HASH, or enter them in the TUI when asked.
 On first launch, scan the QR code in Telegram's Devices settings.
 
 Groups and channels are shown by default. Press p to include private chats.
-Main keys: Tab switch panel; arrows or j/k move; Space mark; s select own;
+Main keys: Tab switch panel; arrows or j/k move; PgUp/PgDn page; Home/End ends;
+/ search loaded chats; R refresh chats; m more chats; Enter inspect a message;
+Space mark; s select own;
 c clear selection; n next page; L load all; v view mine/all;
 d delete marked; A delete all own messages; [ / ] adjust chat width;
-0 reset chat width to 32%; r reload; ? keyboard help; q quit; Ctrl+C quit anytime.
+0 reset chat width to 32%; r reload messages/retry initialization; ! notice details; ? keyboard help; q quit; Ctrl+C quit anytime.
 Esc stops background work after the in-flight request; completed batches stay deleted.
 Deletion requires typing DELETE and pressing Enter; Esc cancels.`);
     return;
@@ -53,7 +55,7 @@ Deletion requires typing DELETE and pressing Enter; Esc cancels.`);
   await start({allowCredentialPrompt: !values.config});
 }
 
-main().catch(error => {
+main().catch((error) => {
   console.error(`tg-manager: ${error instanceof Error ? error.message : String(error)}`);
   process.exitCode = 1;
 });

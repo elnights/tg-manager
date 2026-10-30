@@ -13,10 +13,19 @@ import {adjustChatPercent, panelWidths, Panels, Row, singleLine, useTerminalSize
 // width implementation. Expected cell counts below are independent fixtures.
 const inkRequire = createRequire(import.meta.resolve('ink'));
 const {default: inkWidth} = await import(pathToFileURL(inkRequire.resolve('string-width')).href);
-const {tokenize} = await import(new URL('./build/index.js', pathToFileURL(inkRequire.resolve('@alcalzone/ansi-tokenize/package.json'))).href);
+const {tokenize} = await import(
+  new URL('./build/index.js', pathToFileURL(inkRequire.resolve('@alcalzone/ansi-tokenize/package.json'))).href
+);
 const glyphs = new Map([
-  ['✈️', 2], ['🛫', 2], ['🚀', 2], ['👨‍👩‍👧‍👦', 2], ['🇨🇿', 2], ['e\u0301', 1],
-  ['✈︎', 1], ['漢', 2], ['…', 1],
+  ['✈️', 2],
+  ['🛫', 2],
+  ['🚀', 2],
+  ['👨‍👩‍👧‍👦', 2],
+  ['🇨🇿', 2],
+  ['e\u0301', 1],
+  ['✈︎', 1],
+  ['漢', 2],
+  ['…', 1],
 ]);
 const segmenter = new Intl.Segmenter(undefined, {granularity: 'grapheme'});
 
@@ -49,22 +58,45 @@ function cells(line: string) {
 for (const [glyph, width] of glyphs) {
   test(`Ink measures and tokenizes ${glyph} as one ${width}-cell grapheme`, () => {
     assert.equal(inkWidth(glyph), width);
-    assert.deepEqual(tokenize(glyph).filter((token: {type: string}) => token.type === 'char')
-      .map((token: {value: string}) => token.value), [glyph]);
+    assert.deepEqual(
+      tokenize(glyph)
+        .filter((token: {type: string}) => token.type === 'char')
+        .map((token: {value: string}) => token.value),
+      [glyph],
+    );
   });
 
   test(`selected rows preserve ${glyph}, fill the row and truncate at grapheme boundaries`, () => {
     for (let width = 0; width <= 32; width++) {
-      for (const text of [`> ${glyph} chat`, `> ${glyph.repeat(20)} end`, `> ${'a'.repeat(Math.max(0, width - 4))}${glyph} end`]) {
-        const output = renderToString(<Row width={width} backgroundColor="yellowBright" color="black" bold>{text}</Row>, {columns: 40});
+      for (const text of [
+        `> ${glyph} chat`,
+        `> ${glyph.repeat(20)} end`,
+        `> ${'a'.repeat(Math.max(0, width - 4))}${glyph} end`,
+      ]) {
+        const output = renderToString(
+          <Row width={width} backgroundColor="yellowBright" color="black" bold>
+            {text}
+          </Row>,
+          {columns: 40},
+        );
         assert.equal(output.includes('\n'), false);
         const row = cells(output);
-        assert.equal(row.length, width, `${JSON.stringify(text)} at width ${width}: ${JSON.stringify(output)}`);
-        assert.ok(row.every(cell => cell.background === 103), 'every cell, including emoji continuations and padding, must be highlighted');
+        assert.equal(
+          row.length,
+          width,
+          `${JSON.stringify(text)} at width ${width}: ${JSON.stringify(output)}`,
+        );
+        assert.ok(
+          row.every((cell) => cell.background === 103),
+          'every cell, including emoji continuations and padding, must be highlighted',
+        );
         if (inkWidth(text) <= width) assert.equal(stripVTControlCharacters(output).trimEnd(), text);
         // No ANSI styling may split a grapheme or strip its selectors/joiners.
         const plain = stripVTControlCharacters(output).trimEnd();
-        assert.ok(text.startsWith(plain.replace(/…$/, '')), `truncation changed the source: ${JSON.stringify(plain)}`);
+        assert.ok(
+          text.startsWith(plain.replace(/…$/, '')),
+          `truncation changed the source: ${JSON.stringify(plain)}`,
+        );
       }
     }
   });
@@ -78,18 +110,46 @@ test('single-line normalization preserves emoji presentation and combining chara
 
 function frame(columns: number, percent: number, selected: number, messagesFocused = false) {
   const widths = panelWidths(columns, percent);
-  const titles = [...glyphs.keys()].map(glyph => `> ${glyph} chat ${glyph.repeat(12)}`);
-  const output = renderToString(<Panels widths={widths} height={titles.length + 1}
-    chats={<>
-      <Row width={widths.leftWidth} backgroundColor="blueBright">CHATS</Row>
-      {titles.map((title, i) => <Row key={title} width={widths.leftWidth}
-        backgroundColor={i === selected && !messagesFocused ? 'yellowBright' : undefined}>{title}</Row>)}
-    </>}
-    messages={<>
-      <Row width={widths.rightWidth} backgroundColor="blueBright">MESSAGES</Row>
-      {titles.map((title, i) => <Row key={title} width={widths.rightWidth}
-        backgroundColor={i === selected && messagesFocused ? 'yellowBright' : undefined}>{title}</Row>)}
-    </>}/>, {columns: Math.max(1, columns)});
+  const titles = [...glyphs.keys()].map((glyph) => `> ${glyph} chat ${glyph.repeat(12)}`);
+  const output = renderToString(
+    <Panels
+      widths={widths}
+      height={titles.length + 1}
+      chats={
+        <>
+          <Row width={widths.leftWidth} backgroundColor="blueBright">
+            CHATS
+          </Row>
+          {titles.map((title, i) => (
+            <Row
+              key={title}
+              width={widths.leftWidth}
+              backgroundColor={i === selected && !messagesFocused ? 'yellowBright' : undefined}
+            >
+              {title}
+            </Row>
+          ))}
+        </>
+      }
+      messages={
+        <>
+          <Row width={widths.rightWidth} backgroundColor="blueBright">
+            MESSAGES
+          </Row>
+          {titles.map((title, i) => (
+            <Row
+              key={title}
+              width={widths.rightWidth}
+              backgroundColor={i === selected && messagesFocused ? 'yellowBright' : undefined}
+            >
+              {title}
+            </Row>
+          ))}
+        </>
+      }
+    />,
+    {columns: Math.max(1, columns)},
+  );
   return {output, widths};
 }
 
@@ -105,16 +165,24 @@ test('divider and full-row selection survive every column width, focus and panel
           assert.ok(row.length <= widths.width, `overflow at ${columns} columns`);
           if (widths.separatorWidth) {
             assert.equal(row[widths.leftWidth]?.glyph, '|');
-            assert.equal(row[widths.leftWidth]?.background, undefined, 'highlight must stop before separator');
+            assert.equal(
+              row[widths.leftWidth]?.background,
+              undefined,
+              'highlight must stop before separator',
+            );
           }
           const left = row.slice(0, widths.leftWidth);
           const right = row.slice(widths.leftWidth + widths.separatorWidth);
           if (i === 2) {
             assert.equal(left.length, widths.leftWidth);
             if (messagesFocused) assert.equal(right.length, widths.rightWidth);
-            assert.ok(left.every(cell => cell.background === (messagesFocused ? undefined : 103)));
-            assert.ok(right.every(cell => cell.background === (messagesFocused ? 103 : undefined)));
-          } else if (i > 0) assert.ok(row.every(cell => cell.background !== 103), 'stale row selection');
+            assert.ok(left.every((cell) => cell.background === (messagesFocused ? undefined : 103)));
+            assert.ok(right.every((cell) => cell.background === (messagesFocused ? 103 : undefined)));
+          } else if (i > 0)
+            assert.ok(
+              row.every((cell) => cell.background !== 103),
+              'stale row selection',
+            );
         }
       }
     }
@@ -154,9 +222,15 @@ test('live Ink input and resize repaint the divider and clear previous selection
   }
   class Input extends PassThrough {
     isTTY = true;
-    setRawMode() {return this;}
-    ref() {return this;}
-    unref() {return this;}
+    setRawMode() {
+      return this;
+    }
+    ref() {
+      return this;
+    }
+    unref() {
+      return this;
+    }
   }
   const stdout = new Output();
   const stdin = new Input();
@@ -167,29 +241,53 @@ test('live Ink input and resize repaint the divider and clear previous selection
     const [selected, setSelected] = useState(0);
     const [right, setRight] = useState(false);
     useInput((input, key) => {
-      if (input === '[' || input === ']' || input === '0') setPercent(previous => adjustChatPercent(previous, input));
-      if (key.downArrow) setSelected(previous => (previous + 1) % titles.length);
-      if (key.tab) setRight(previous => !previous);
+      if (input === '[' || input === ']' || input === '0')
+        setPercent((previous) => adjustChatPercent(previous, input));
+      if (key.downArrow) setSelected((previous) => (previous + 1) % titles.length);
+      if (key.tab) setRight((previous) => !previous);
     });
     const widths = panelWidths(size.columns, percent);
-    return <Box width={widths.width} height={size.rows - 1} flexDirection="column">
-      <Row width={widths.width}>{`SIZE ${size.columns}x${size.rows}/${percent}/${selected}/${Number(right)}`}</Row>
-      <Panels widths={widths} height={size.rows - 2}
-        chats={titles.map((title, i) => <Row key={title} width={widths.leftWidth}
-          backgroundColor={i === selected && !right ? 'yellowBright' : undefined}>{`> ${title} chat`}</Row>)}
-        messages={titles.map((title, i) => <Row key={title} width={widths.rightWidth}
-          backgroundColor={i === selected && right ? 'yellowBright' : undefined}>{`> [x] ${title} message`}</Row>)}/>
-    </Box>;
+    return (
+      <Box width={widths.width} height={size.rows - 1} flexDirection="column">
+        <Row
+          width={widths.width}
+        >{`SIZE ${size.columns}x${size.rows}/${percent}/${selected}/${Number(right)}`}</Row>
+        <Panels
+          widths={widths}
+          height={size.rows - 2}
+          chats={titles.map((title, i) => (
+            <Row
+              key={title}
+              width={widths.leftWidth}
+              backgroundColor={i === selected && !right ? 'yellowBright' : undefined}
+            >{`> ${title} chat`}</Row>
+          ))}
+          messages={titles.map((title, i) => (
+            <Row
+              key={title}
+              width={widths.rightWidth}
+              backgroundColor={i === selected && right ? 'yellowBright' : undefined}
+            >{`> [x] ${title} message`}</Row>
+          ))}
+        />
+      </Box>
+    );
   }
-  const instance = render(<Harness/>, {
-    stdout, stdin, stderr: new PassThrough(), interactive: true,
-    patchConsole: false, exitOnCtrlC: false, maxFps: 0, kittyKeyboard: {mode: 'disabled'},
+  const instance = render(<Harness />, {
+    stdout,
+    stdin,
+    stderr: new PassThrough(),
+    interactive: true,
+    patchConsole: false,
+    exitOnCtrlC: false,
+    maxFps: 0,
+    kittyKeyboard: {mode: 'disabled'},
   });
   async function check(percent: number, selected: number, right: boolean, erased = true) {
     const marker = `SIZE ${stdout.columns}x${stdout.rows}/${percent}/${selected}/${Number(right)}`;
     let chunk = '';
     for (let attempts = 0; attempts < 100; attempts++) {
-      chunk = stdout.chunks.filter(value => value.includes('|')).at(-1) ?? '';
+      chunk = stdout.chunks.filter((value) => value.includes('|')).at(-1) ?? '';
       if (stripVTControlCharacters(chunk).startsWith(marker)) break;
       await setTimeout(10);
     }
@@ -204,10 +302,14 @@ test('live Ink input and resize repaint the divider and clear previous selection
       assert.ok(row.length <= widths.width, 'frame must fit after resize');
       if (i === 0) continue;
       assert.equal(row[widths.leftWidth]?.glyph, '|');
-      const highlighted = row.flatMap((cell, column) => cell.background === 103 ? [column] : []);
+      const highlighted = row.flatMap((cell, column) => (cell.background === 103 ? [column] : []));
       const start = right ? widths.leftWidth + 1 : 0;
       const count = right ? widths.rightWidth : widths.leftWidth;
-      assert.deepEqual(highlighted, i === selected + 1 ? Array.from({length: count}, (_, index) => start + index) : [], 'no stale or partial selection');
+      assert.deepEqual(
+        highlighted,
+        i === selected + 1 ? Array.from({length: count}, (_, index) => start + index) : [],
+        'no stale or partial selection',
+      );
     }
     stdout.chunks = [];
   }
@@ -221,7 +323,12 @@ test('live Ink input and resize repaint the divider and clear previous selection
     await check(32, 1, false);
     stdin.write('\t');
     await check(32, 1, true);
-    for (const [columns, rows] of [[60, 12], [40, 8], [110, 28], [80, 16]]) {
+    for (const [columns, rows] of [
+      [60, 12],
+      [40, 8],
+      [110, 28],
+      [80, 16],
+    ]) {
       stdout.columns = columns!;
       stdout.rows = rows!;
       stdout.emit('resize');
