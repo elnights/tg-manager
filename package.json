@@ -3,6 +3,7 @@
   "description": "A local terminal app for browsing Telegram chats and managing your own messages.",
   "version": "0.4.0",
   "type": "module",
+  "license": "WTFPL",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/elnights/tg-manager.git"

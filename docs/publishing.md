@@ -8,8 +8,8 @@ into `dist/`; consumers do not need TypeScript, tsx or the test packages.
 ## Release preparation
 
 1. Confirm npm account access to the `tg-manager-tui` name before the first
-   release. The license is currently undecided; no license file or SPDX
-   identifier has been chosen.
+   release. The project uses WTFPL (see `LICENSE` and the `license` field in
+   `package.json`).
 2. Update the version in `package.json` and its lockfile if publishing a new
    version. Leave npm credentials in your own npm configuration.
 3. Run the release checks:

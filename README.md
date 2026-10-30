@@ -121,3 +121,12 @@ truncation, selection backgrounds, divider alignment, keyboard input and resizin
 See [Contributing](CONTRIBUTING.md) and the
 [Unicode rendering investigation](docs/unicode-rendering.md). Maintainers can
 follow the [publishing guide](docs/publishing.md) to build and verify a release.
+
+## License
+
+WTFPL — Do What The Fuck You Want To Public License.
+
+I don't give a fuck what you do with this code. Use it, modify it, fork it,
+sell it, or throw it away. No permission needed.
+
+See [LICENSE](LICENSE).
