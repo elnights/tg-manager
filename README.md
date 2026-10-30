@@ -1,126 +1,112 @@
 # TG Manager
 
-A local terminal app for browsing Telegram chats and managing messages authored
-by your account. Log in with a QR code, view your messages or everyone's,
-and select your messages for deletion after explicit confirmation.
+Browse Telegram chats in your terminal, switch between your messages and all
+authors, and select your own messages for deletion with explicit confirmation.
+Groups and channels appear by default; private chats are one key away.
 
-## Setup
+Actual UI rendered with synthetic data (100 columns × 24 rows):
+
+![Synthetic TG Manager terminal showing loaded chats, message rows and active keyboard controls](assets/synthetic-terminal.svg)
+
+Text example (synthetic data):
+
+```text
+TG MANAGER / Weekend project
+[ACTIVE] GROUPS/CHANNELS          MESSAGES [MINE]
+> Weekend project                > [ ] You: Example message
+Mine · 100 own messages loaded · 0 selected · More may be available
+Tab/←→ p v r A Delete all [ ] Resize 0 Reset q/Ctrl+C ? Help
+```
+
+## Installation
 
 Requires **Node.js 24+**, macOS or Linux, and an interactive terminal.
-
-### npm CLI
-
-Once the first npm release is published:
+After the first npm release is published:
 
 ```sh
 npm install --global tg-manager-tui
 tg-manager
 ```
 
-Get your Telegram API ID and hash from [my.telegram.org](https://my.telegram.org/).
-If credentials are missing, the TUI asks for your API ID and API hash before
-login. The hash is masked, and entered credentials are used only for that run.
-You can also supply a file with `tg-manager --config /path/to/credentials`, or
-export `TG_API_ID` and `TG_API_HASH` in your shell. An explicitly supplied config
-must contain valid credentials; incomplete configuration reports an error.
-
-Use `tg-manager --help` for command-line options, `tg-manager --version` for the
-installed version, or `tg-manager --demo` to preview the TUI offline.
-
-### From source
+To run from source:
 
 ```sh
 git clone https://github.com/elnights/tg-manager.git
 cd tg-manager
 npm ci
-```
-
-Run:
-
-```sh
 npm start
 ```
 
-`npm start` prompts for missing credentials. Optionally copy `.env.example` to
-`.env` and fill in the values; `npm start` loads it when present.
+Use `tg-manager --demo` (or `npm run repro:emoji`) for an offline terminal
+preview with synthetic titles. `--help` lists CLI options; `--version` prints
+the installed version.
 
-On first launch, scan the QR code in Telegram: **Settings → Devices → Link
-Desktop Device**. Enter your cloud password in the terminal if prompted.
-Later launches reuse the saved session.
+## First launch
 
-## Usage
+Get your API ID and hash from [my.telegram.org](https://my.telegram.org/).
+The app asks for missing credentials and masks the hash; values entered in the
+form are used only for that run. You can also export `TG_API_ID` and
+`TG_API_HASH`, or use `tg-manager --config /path/to/credentials`.
+Explicit configuration must contain valid credentials. From source, `npm start`
+also loads a local `.env` when present.
 
-The left panel shows groups and channels by default. Press `p` to include
-private chats, or press it again to hide them. Select a conversation, switch to
-the right panel, and mark the messages you want to delete. Key names are
-case-sensitive.
+Scan the QR code in Telegram: **Settings → Devices → Link Desktop Device**.
+Enter your cloud password if prompted. Later launches reuse the private session
+in your user data directory, independently of the launch directory.
+See [storage and migration](docs/storage.md) before moving an existing install.
 
-| Key | Action |
-| --- | --- |
-| `Tab`, `←`, `→` | Switch panels |
-| `↑` / `k`, `↓` / `j` | Move the cursor in the focused panel |
-| `Space` | Toggle the current message's selection (messages panel) |
-| `p` | Include / hide private chats in the conversation list |
-| `v` | Switch between your messages and messages from all authors |
-| `s` | Select your loaded messages; offer to load the rest of the current view and select yours (messages panel) |
-| `c` | Clear all message marks in the main view (either panel) |
-| `n` | Load the next 100 messages (messages panel) |
-| `L` | Load the remaining history for the current view (messages panel) |
-| `d` | Request deletion of marked messages (messages panel) |
-| `A` | Delete all your messages in the active chat after confirmation, including unloaded messages (either panel) |
-| `r` | Reload the active chat's messages |
-| `[` / `]` | Narrow / widen the chat panel |
-| `0` | Reset the chat panel width to 32% of the available width |
-| `q` | Quit from the main view |
-| `Ctrl+C` | Quit at any time, including during a request |
+## Essential controls
 
-The message header shows `[MINE]` or `[ALL]`. All-authors mode includes sender
-names. Other people's messages have a `[-]` marker and cannot be selected or
-deleted. Switching views reloads the history and clears selection.
-Toggling private chats keeps the active conversation and its marks when it
-remains visible; hiding the active private chat selects the first group/channel
-and clears its messages and marks.
+| Key                        | Action                                                                    |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `↑` / `↓`, `j` / `k`       | Navigate the focused panel                                                |
+| `Tab`, `←`, `→`            | Switch panels                                                             |
+| `Page Up/Down`, `Home/End` | Page / first or last loaded item in either panel                          |
+| `/`, `R`, `m`              | Search loaded chats / refresh list / load more chats                      |
+| `Enter`                    | Inspect a message in a read-only scrolling view                           |
+| `r`, `!`                   | Reload messages or retry initialization / read notice details             |
+| `p`                        | Show / hide private chats                                                 |
+| `v`                        | Switch Mine / All authors                                                 |
+| `Space`, `s`, `c`          | Mark one / select own / clear selection                                   |
+| `n`, **`L`**               | Load next page / remaining view                                           |
+| `d`                        | Confirm deletion of marked own messages                                   |
+| `?`                        | Open the complete keyboard reference                                      |
+| `Esc`                      | Cancel a prompt, stop work after the current request, or dismiss an alert |
+| `q`, `Ctrl+C`              | Quit from the main view / anytime                                         |
 
-In the select-all prompt, press `Y` to load the rest of the current view and
-select your messages, `N` to select only your loaded messages, or `Esc` / `C`
-to cancel. Both deletion modes require typing `DELETE` and pressing `Enter`;
-`Esc` cancels the confirmation.
-Other main-view keys are paused while a prompt or request is active.
+Keys are case-sensitive. The footer shows available controls; `?` opens the full
+reference. The status row shows progress and exact loaded/selected counts.
+“More may be available” means the next page has not been checked.
 
-**Deletion is irreversible.** The app requests deletion for everyone where
-Telegram permits it. Quitting during deletion does not undo completed batches.
+Search covers loaded chat titles and IDs. Use `m` to load more chats and `R` to
+refresh the list. Other people's messages appear read-only (`[-]`) in All mode.
 
-## Storage and limits
+## Deletion safety
 
-- The Telegram session is stored unencrypted in `.local/session.txt` with file
-  permissions `0600`. It grants access to your account. Keep it and `.env`
-  private; revoke the session through Telegram's Devices settings when needed.
-  This path is relative to the working directory, so launch from the same
-  directory to reuse a session.
-- Panel width is saved in `~/.config/tg-manager/settings.json` and can range from
-  20–70%, subject to the available terminal width.
-- The chat list loads up to 500 dialogs. Message previews start with 100 messages
-  and show one line per message; media contents are not downloaded.
-- The default view and bulk deletion scan use Telegram's `fromUser: 'me'`
-  filter. All-authors view uses sender IDs (or outgoing private-message
-  metadata) to identify yours. Anonymous administrator or channel-as-sender
-  posts may not be identified as yours.
-  API restrictions and rate limits can interrupt large operations.
+**Deletion is irreversible** and can affect other participants. Both selected
+and entire-history deletion require typing exactly `DELETE` and pressing Enter.
+The confirmation shows your account, chat title and ID, deletion scope and exact
+count. Enlarge the terminal if the full confirmation cannot fit. Pasting `DELETE` still requires a separate Enter.
+Uppercase **`A`** scans all your messages in the active chat before asking for
+confirmation. It never deletes automatically.
 
-## Development
+Progress separates accepted deletion requests from messages verified absent by
+ID. A failed request may still have taken effect; reload and verify before
+retrying. Esc stops between batches and verifies an accepted in-flight batch.
+Ctrl+C exits immediately; completed or in-flight requests cannot be undone.
+Warnings, errors and deletion results remain until dismissed with Esc; `!` opens
+their full details. During work Esc stops after the current request and any
+accepted deletion verification. Telegram may wait or retry internally; the app
+cannot expose a reliable countdown or interrupt an in-flight RPC.
 
-```sh
-npm run typecheck
-npm test
-npm run test:package
-npm run repro:emoji
-```
+## Documentation
 
-The emoji demo runs offline with synthetic titles. Tests cover Unicode width,
-truncation, selection backgrounds, divider alignment, keyboard input and resizing.
-See [Contributing](CONTRIBUTING.md) and the
-[Unicode rendering investigation](docs/unicode-rendering.md). Maintainers can
-follow the [publishing guide](docs/publishing.md) to build and verify a release.
+- [Complete keyboard reference](docs/keyboard.md), including prompts and cancellation
+- [Session storage, migration and limits](docs/storage.md)
+- [Terminal rendering and regression tests](docs/unicode-rendering.md)
+- [Contributing](CONTRIBUTING.md) and [publishing](docs/publishing.md)
+- [Security policy and private reporting](SECURITY.md)
+- [Repository security checks](docs/security.md)
 
 ## License
 
