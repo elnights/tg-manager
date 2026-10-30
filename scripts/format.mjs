@@ -23,6 +23,8 @@ const files = ['src', 'test', 'scripts', 'docs', '.github']
     'eslint.config.mjs',
     'prettier.config.mjs',
     'README.md',
+    'AGENTS.md',
+    'ARCHITECTURE.md',
     'CONTRIBUTING.md',
     'SECURITY.md',
     'CHANGELOG.md',

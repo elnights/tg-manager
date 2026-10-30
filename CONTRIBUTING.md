@@ -3,6 +3,9 @@
 Use Node.js 24 or newer. If you use nvm, run `nvm use` in the repository.
 Install the locked dependencies with `npm ci`.
 
+Read [AGENTS.md](AGENTS.md) for repository constraints and
+[ARCHITECTURE.md](ARCHITECTURE.md) for the module map, safety invariants and test coverage.
+
 Before submitting a change, run:
 
 ```sh
