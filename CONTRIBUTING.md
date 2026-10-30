@@ -6,6 +6,8 @@ Install the locked dependencies with `npm ci`.
 Before submitting a change, run:
 
 ```sh
+npm run lint
+npm run format:check
 npm run typecheck
 npm test
 npm run test:package
@@ -32,6 +34,15 @@ deletion, authentication or storage. Never run destructive tests against a real
 account. Describe behavior changes and the checks you ran in the pull request.
 For a terminal bug report, include your OS, Node.js version, terminal/version
 and a synthetic reproduction. Exclude real chat data, credentials and sessions.
+
+Use `npm run format` for mechanical formatting. Tools operate on explicit public
+source/documentation paths and exclude `.env`, `.env.*` and `.local/` before
+reading. Do not run broad format/lint commands over the repository. Keep behavior
+changes and formatting separate in review where practical.
+
+`npm run preview:synthetic` runs the real App with fake clients and in-memory
+settings; `npm run preview:capture` regenerates the README SVG and a narrow preview.
+Neither reads real sessions nor connects to Telegram.
 
 See [Publishing](docs/publishing.md) for release preparation.
 Run [the local secret review](docs/security.md) before publishing changes.

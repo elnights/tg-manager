@@ -5,11 +5,11 @@ Revoke unwanted sessions through Telegram's Devices settings.
 
 ## Stable user location
 
-| Platform | Session file |
-| --- | --- |
-| macOS | `~/Library/Application Support/tg-manager/session.txt` |
-| Linux with absolute `XDG_DATA_HOME` | `$XDG_DATA_HOME/tg-manager/session.txt` |
-| Linux fallback | `~/.local/share/tg-manager/session.txt` |
+| Platform                            | Session file                                           |
+| ----------------------------------- | ------------------------------------------------------ |
+| macOS                               | `~/Library/Application Support/tg-manager/session.txt` |
+| Linux with absolute `XDG_DATA_HOME` | `$XDG_DATA_HOME/tg-manager/session.txt`                |
+| Linux fallback                      | `~/.local/share/tg-manager/session.txt`                |
 
 Empty or relative `XDG_DATA_HOME` values use the Linux fallback. macOS ignores
 `XDG_DATA_HOME`. Normal launches always use this user location, regardless of
@@ -40,11 +40,11 @@ Development tests use synthetic temporary files and never access real sessions.
 - Panel width is stored in `~/.config/tg-manager/settings.json`.
 - API credentials entered in the form are used for that run only. The app also
   accepts environment variables or an explicitly supplied credentials file.
-- The list loads at most 500 dialogs. Message pages contain up to 100 messages;
-  previews use one line and do not download media. Large histories stay in memory.
-- Mine and mass-deletion scans use `fromUser: 'me'`. All-authors mode uses sender
-  IDs or outgoing private-message metadata. Anonymous administrator or
-  channel-as-sender posts may not be recognized as yours.
+- Chats load in pages of up to 100; press `m` for more. Search covers loaded chats.
+  Message pages contain up to 100 messages; Enter opens the full text preview.
+  Media is not downloaded. Large histories stay in memory.
+- Only messages recognized as yours can be marked or deleted. Anonymous
+  administrator or channel-as-sender posts may not be recognized as yours.
 - Telegram permissions and rate limits can interrupt operations. Cancellation
   cannot abort an in-flight API call; it stops further pages/batches afterward.
 - User permissions do not protect against another process running as the same

@@ -1,5 +1,9 @@
 # Repository security checks
 
+To report a vulnerability, use the repository's enabled
+[private reporting form](https://github.com/elnights/tg-manager/security/advisories/new).
+See the [security policy](../SECURITY.md) for supported versions and reporting guidance.
+
 Never commit Telegram sessions, API hashes, passwords, message exports or private
 logs. `.gitignore` excludes credentials, local storage, session files, common
 export filenames and logs. The npm package uses an explicit file allowlist;
@@ -29,13 +33,7 @@ without content inspection. A tracked `.env.example` is permitted by filename,
 but its contents are deliberately not verified. Other protected/private
 filenames fail the check, including historical occurrences.
 
-## Cleanup review
-
-The review of the two original reachable commits (`ab7ced1` and `7f6aa01`)
-found no secret matches in permitted tracked contents/history and no tracked
-session files, real message exports or logs by filename. `.env.example` was the
-only protected filename in that history; its contents were not inspected.
-Local credentials and sessions were not read or changed.
+## Scope and limitations
 
 Pattern scanning cannot prove that arbitrary text contains no private messages,
 and protected contents, unreachable commits, remote-only refs, and GitHub logs or

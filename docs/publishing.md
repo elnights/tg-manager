@@ -1,73 +1,79 @@
 # Publishing
 
-The GitHub repository is [elnights/tg-manager](https://github.com/elnights/tg-manager).
-It produces the `tg-manager-tui` npm package and installs the
-`tg-manager` command. Node.js 24+ is required. Runtime JavaScript is compiled
-into `dist/`; consumers do not need TypeScript, tsx or the test packages.
+This repository builds the `tg-manager-tui` npm package and `tg-manager` CLI.
+Releases require Node.js 24+ and retain the WTFPL license.
 
-## Release preparation
+## Release checks
 
-1. Confirm npm account access to the `tg-manager-tui` name before the first
-   release. The project uses WTFPL (see `LICENSE` and the `license` field in
-   `package.json`).
-2. Update the version in `package.json` and its lockfile if publishing a new
-   version. Leave npm credentials in your own npm configuration.
-3. Run the release checks:
+1. Update the version in package.json and package-lock.json together. Date the
+   matching changelog entry when releasing.
+2. Run:
 
    ```sh
    npm ci
+   npm run lint
+   npm run format:check
    npm run typecheck
    npm test
    npm run test:package
    npm run build
+   npm audit --omit=dev
+   npm run test:secrets
+   git diff --check
    ```
 
-4. In an interactive terminal, run `npm run repro:emoji`. Check navigation,
-   focus, row highlighting, panel widths and terminal resizing.
-5. Commit with the repository's configured signing key and wait for GitHub CI
-   to pass after pushing to the chosen repository.
+   Secret scanning requires Gitleaks 8.30.1; see [security checks](security.md).
 
-## Build and inspect the artifact
+3. Run `npm run repro:emoji` and `npm run preview:synthetic` in a terminal.
+   Check navigation, focus, resizing and synthetic confirmation. Never use a real
+   Telegram account for release testing.
+4. Pack and inspect the tarball, then install it with production dependencies
+   only. `test:package` automates this check. Source, fixtures and contributor
+   tooling must stay out of the package.
+5. Publish the reviewed artifact only after approval. Version `X.Y.Z` corresponds
+   to npm `tg-manager-tui@X.Y.Z`, Git tag `vX.Y.Z`, the GitHub release and
+   `tg-manager-tui-X.Y.Z.tgz`. Attach that tarball and its SHA-256 to the release;
+   use the changelog for release notes. Never reuse versions or move release tags.
 
-```sh
-npm pack
-```
+## First publication
 
-The `prepack` hook rebuilds the CLI and makes its executable entry point ready.
-The package uses an explicit file allowlist: generated JavaScript,
-documentation and npm's required metadata. Source, tests, working directories
-and configuration files are excluded. The package test verifies the contents
-and installs the tarball in a temporary location to exercise `--help`,
-`--version`, the offline demo, missing-credentials UI, invalid configuration,
-invalid arguments and the non-interactive-terminal error. It also verifies the
-Telegram and QR-code dependencies can be imported.
+Verify ownership or availability of `tg-manager-tui` before publishing.
+For a new name, bootstrap it with an authorized npm account and 2FA using
+[npm's unscoped-package instructions](https://docs.npmjs.com/creating-and-publishing-unscoped-public-packages/).
+Trusted publishers are configured in an existing package's settings, so plan for
+this manual first publication before setting up OIDC. A local publish does not
+establish CI provenance. Keep npm credentials out of the repository.
 
-You can also install the generated tarball into a separate test prefix:
+## Trusted publishing setup
 
-```sh
-npm install --prefix /tmp/tg-manager-preview ./tg-manager-tui-0.4.0.tgz
-/tmp/tg-manager-preview/node_modules/.bin/tg-manager --help
-/tmp/tg-manager-preview/node_modules/.bin/tg-manager --demo
-```
+[Trusted publishing](https://docs.npmjs.com/trusted-publishers/) requires npm
+11.5.1+ and Node 22.14+; this project uses Node 24+. Use GitHub-hosted runners.
+Configure the package's npm trusted publisher with:
 
-Use `--demo` for a release preview without Telegram credentials or sessions.
-The normal CLI requires an interactive terminal. Credentials can be entered in
-the UI, exported in the environment or supplied using `--config PATH`.
-Sessions use the per-user data directory described in [Storage](storage.md).
-Legacy working-directory sessions migrate only when no destination exists; the
-original is kept. Never include sessions, credentials or exports in release artifacts.
+| Field                | Value                     |
+| -------------------- | ------------------------- |
+| User or organization | `elnights`                |
+| Repository           | `tg-manager`              |
+| Workflow filename    | `publish.yml`             |
+| Environment          | `npm-release`             |
+| Direct publishing    | Allowed for this template |
 
-## Publish after review
+A new configuration must publish successfully within two days or be recreated.
 
-```sh
-npm publish --dry-run
-npm publish
-```
+Before moving `.github/publish.yml.example` to `.github/workflows/publish.yml`:
 
-The `prepublishOnly` hook runs typecheck, rendering tests and the package
-installation test. Publishing requires an authorized npm account and an unused
-package version. For a scoped public package, include `--access public`.
+- Create the `npm-release` environment with required approval and protected `v*` tags.
+- Protect release tags and review workflow changes. Retain minimal permissions,
+  `persist-credentials: false` and full commit pins for external Actions.
+- Confirm the npm publisher settings match the workflow exactly.
 
-After the package is published, create the matching Git tag and GitHub release,
-and remove the README's first-release qualification. Publishing and release
-creation are manual; the CI workflow only runs verification.
+The template stays inactive until moved. Once enabled, dispatch it manually on
+an approved version tag after CI and Secret scanning pass. It checks tag/version
+consistency, retains the exact tarball and checksum as `npm-artifact` for 14 days,
+and publishes those bytes with OIDC. Attach that download to the GitHub release.
+Review token restrictions after trusted publishing works.
+
+[npm provenance](https://docs.npmjs.com/generating-provenance-statements/) requires
+a public repository and public package; `repository.url` must match the source.
+It links the package to its source and build, without certifying code safety.
+After installation, use `npm audit signatures` to verify attestations.

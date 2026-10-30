@@ -4,7 +4,11 @@ Browse Telegram chats in your terminal, switch between your messages and all
 authors, and select your own messages for deletion with explicit confirmation.
 Groups and channels appear by default; private chats are one key away.
 
-Synthetic example (no account data):
+Actual UI rendered with synthetic data (100 columns × 24 rows):
+
+![Synthetic TG Manager terminal showing loaded chats, message rows and active keyboard controls](assets/synthetic-terminal.svg)
+
+Text example (synthetic data):
 
 ```text
 TG MANAGER / Weekend project
@@ -53,34 +57,36 @@ See [storage and migration](docs/storage.md) before moving an existing install.
 
 ## Essential controls
 
-| Key | Action |
-| --- | --- |
-| `↑` / `↓`, `j` / `k` | Navigate the focused panel |
-| `Tab`, `←`, `→` | Switch panels |
-| `p` | Show / hide private chats |
-| `v` | Switch Mine / All authors |
-| `Space`, `s`, `c` | Mark one / select own / clear selection |
-| `n`, **`L`** | Load next page / remaining view |
-| `d` | Confirm deletion of marked own messages |
-| `?` | Open the complete keyboard reference |
-| `Esc` | Cancel a prompt, stop work after the current request, or dismiss an alert |
-| `q`, `Ctrl+C` | Quit from the main view / anytime |
+| Key                        | Action                                                                    |
+| -------------------------- | ------------------------------------------------------------------------- |
+| `↑` / `↓`, `j` / `k`       | Navigate the focused panel                                                |
+| `Tab`, `←`, `→`            | Switch panels                                                             |
+| `Page Up/Down`, `Home/End` | Page / first or last loaded item in either panel                          |
+| `/`, `R`, `m`              | Search loaded chats / refresh list / load more chats                      |
+| `Enter`                    | Inspect a message in a read-only scrolling view                           |
+| `r`, `!`                   | Reload messages or retry initialization / read notice details             |
+| `p`                        | Show / hide private chats                                                 |
+| `v`                        | Switch Mine / All authors                                                 |
+| `Space`, `s`, `c`          | Mark one / select own / clear selection                                   |
+| `n`, **`L`**               | Load next page / remaining view                                           |
+| `d`                        | Confirm deletion of marked own messages                                   |
+| `?`                        | Open the complete keyboard reference                                      |
+| `Esc`                      | Cancel a prompt, stop work after the current request, or dismiss an alert |
+| `q`, `Ctrl+C`              | Quit from the main view / anytime                                         |
 
-Keys are case-sensitive. The legend lists every active binding, including
-`[`, `]` and `0` in both panels. It shortens descriptions before using extra
-rows on narrow terminals; working keys are never silently dropped.
-The status bar shows the view, loaded and selected counts, and operation progress.
-Loaded counts are exact. “More may be available” means the next page has not
-yet been checked; it disappears once the end of the history is confirmed.
-`A` stays visible for an active chat; `c` appears when messages are selected.
-Routine loading and selection updates change the counters without flashing
-a second notification.
-All-authors mode labels senders; other people's messages are read-only (`[-]`).
+Keys are case-sensitive. The footer shows available controls; `?` opens the full
+reference. The status row shows progress and exact loaded/selected counts.
+“More may be available” means the next page has not been checked.
+
+Search covers loaded chat titles and IDs. Use `m` to load more chats and `R` to
+refresh the list. Other people's messages appear read-only (`[-]`) in All mode.
 
 ## Deletion safety
 
 **Deletion is irreversible** and can affect other participants. Both selected
 and entire-history deletion require typing exactly `DELETE` and pressing Enter.
+The confirmation shows your account, chat title and ID, deletion scope and exact
+count. Enlarge the terminal if the full confirmation cannot fit. Pasting `DELETE` still requires a separate Enter.
 Uppercase **`A`** scans all your messages in the active chat before asking for
 confirmation. It never deletes automatically.
 
@@ -88,7 +94,10 @@ Progress separates accepted deletion requests from messages verified absent by
 ID. A failed request may still have taken effect; reload and verify before
 retrying. Esc stops between batches and verifies an accepted in-flight batch.
 Ctrl+C exits immediately; completed or in-flight requests cannot be undone.
-Warnings and errors remain until dismissed with Esc.
+Warnings, errors and deletion results remain until dismissed with Esc; `!` opens
+their full details. During work Esc stops after the current request and any
+accepted deletion verification. Telegram may wait or retry internally; the app
+cannot expose a reliable countdown or interrupt an in-flight RPC.
 
 ## Documentation
 
@@ -96,6 +105,7 @@ Warnings and errors remain until dismissed with Esc.
 - [Session storage, migration and limits](docs/storage.md)
 - [Terminal rendering and regression tests](docs/unicode-rendering.md)
 - [Contributing](CONTRIBUTING.md) and [publishing](docs/publishing.md)
+- [Security policy and private reporting](SECURITY.md)
 - [Repository security checks](docs/security.md)
 
 ## License

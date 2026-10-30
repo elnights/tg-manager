@@ -1,7 +1,7 @@
 {
   "name": "tg-manager-tui",
   "description": "A local terminal app for browsing Telegram chats and managing your own messages.",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "license": "WTFPL",
   "repository": {
@@ -17,10 +17,18 @@
   },
   "files": [
     "dist/",
-    "docs/",
-    "CONTRIBUTING.md"
+    "docs/*.md",
+    "CONTRIBUTING.md",
+    "SECURITY.md",
+    "CHANGELOG.md"
   ],
-  "keywords": ["telegram", "terminal", "tui", "cli", "ink"],
+  "keywords": [
+    "telegram",
+    "terminal",
+    "tui",
+    "cli",
+    "ink"
+  ],
   "scripts": {
     "start": "node --env-file-if-exists=.env --import tsx src/cli.ts",
     "dev": "tsx src/cli.ts",
@@ -31,7 +39,12 @@
     "test:secrets": "node scripts/scan-secrets.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "npm run typecheck && npm test && npm run test:package",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint --no-warn-ignored \"src/**/*.{ts,tsx}\" \"test/**/*.{ts,tsx}\" \"scripts/*.tsx\"",
+    "format:check": "node scripts/format.mjs",
+    "format": "node scripts/format.mjs --write",
+    "preview:synthetic": "node --import tsx scripts/preview.tsx",
+    "preview:capture": "node --import tsx scripts/preview.tsx --capture"
   },
   "dependencies": {
     "ansi-regex": "^6.5.0",
@@ -42,13 +55,18 @@
     "teleproto": "^1.232.0"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/node": "^24.0.0",
     "@types/qrcode-terminal": "^0.12.2",
     "@types/react": "^19.3.0",
     "@xterm/addon-unicode-graphemes": "^0.4.0",
     "@xterm/headless": "^6.0.0",
+    "eslint": "^10.14.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "prettier": "^3.9.10",
     "tsx": "^4.20.0",
-    "typescript": "^5.9.0"
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.72.1"
   },
   "engines": {
     "node": ">=24"

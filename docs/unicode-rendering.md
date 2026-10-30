@@ -11,11 +11,11 @@ physical cursor position: Ink serializes them into continuous terminal text.
 Replaying output in xterm 6.0.0 reproduces the mismatch. These are Unicode
 provider names, rather than terminal application versions:
 
-| xterm provider | Cells advanced for `✈️` | Divider column (expected 24, zero-based) |
-| --- | ---: | ---: |
-| `6` | 1 | 23 |
-| `15` without grapheme joining | 3 | 25 |
-| `15-graphemes` | 2 | 24 |
+| xterm provider                | Cells advanced for `✈️` | Divider column (expected 24, zero-based) |
+| ----------------------------- | ----------------------: | ---------------------------------------: |
+| `6`                           |                       1 |                                       23 |
+| `15` without grapheme joining |                       3 |                                       25 |
+| `15-graphemes`                |                       2 |                                       24 |
 
 At a panel edge, overwriting an extra emoji continuation with an unhighlighted
 divider can also erase the preceding highlighted cell. Logical layout tests
