@@ -14,10 +14,11 @@ Text example (synthetic data):
 
 ```text
 TG MANAGER / Weekend project
-[ACTIVE] GROUPS/CHANNELS          MESSAGES [MINE]
+Mine [v] · Private: off [p] · With my messages: off [o] · Loaded: 100 chats / 100 msgs
+[ACTIVE] GROUPS/CHANNELS          MESSAGES
 > Weekend project                > [ ] You: Example message
-Mine · 100 own messages loaded · 0 selected · More may be available
-Tab/←→ p v r A Delete all [ ] Resize 0 Reset q/Ctrl+C ? Help
+0 selected · More may be available · More chats may be available
+Tab/←→ Panel / Search R Chats m More r Reload A Delete all q/Ctrl+C ? Help
 ```
 
 ## Installation
@@ -68,6 +69,7 @@ See [storage and migration](docs/storage.md) before moving an existing install.
 | `Enter`                    | Inspect a message in a read-only scrolling view                           |
 | `r`, `!`                   | Reload messages or retry initialization / read notice details             |
 | `p`                        | Show / hide private chats                                                 |
+| `o`                        | Show only loaded chats containing your own messages                       |
 | `v`                        | Switch Mine / All authors                                                 |
 | `Space`, `s`, `c`          | Mark one / select own / clear selection                                   |
 | `n`, **`L`**               | Load next page / remaining view                                           |
@@ -76,9 +78,18 @@ See [storage and migration](docs/storage.md) before moving an existing install.
 | `Esc`                      | Cancel a prompt, stop work after the current request, or dismiss an alert |
 | `q`, `Ctrl+C`              | Quit from the main view / anytime                                         |
 
-Keys are case-sensitive. The footer shows available controls; `?` opens the full
-reference. The status row shows progress and exact loaded/selected counts.
+Keys are case-sensitive. The top strip shows Mine/All, private-chat visibility,
+and exact loaded chat/message counts. The footer shows actions; `?` opens the
+full reference, including layout and extended navigation controls. The bottom
+status row shows selection, progress and notices.
 “More may be available” means the next page has not been checked.
+
+Use `o` in the top view strip to show only chats containing your own messages.
+Enabling it checks each loaded chat with Telegram’s own-message filter; new chat
+pages are checked too. It works with Mine/All, private-chat visibility and search.
+Escape stops checks. Failed or cancelled checks leave the filter off, retain loaded
+chats, and show a notice; press `o` to retry. After deleting a chat’s last own
+message, it drops out of the filtered list.
 
 Search covers loaded chat titles and IDs. Use `m` to load more chats and `R` to
 refresh the list. Other people's messages appear read-only (`[-]`) in All mode.

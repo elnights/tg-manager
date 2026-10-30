@@ -1,12 +1,13 @@
 import React, {useCallback, useEffect, useReducer, useRef, useState} from 'react';
 import {Box, useApp, useInput} from 'ink';
-import {adjustChatPercent, panelWidths, Panels, Row, useTerminalSize} from './ui.js';
-import {fetchMessagePage, ownMessageIds} from './messages.js';
+import {adjustChatPercent, panelWidths, Panels, PanelHeader, Row, useTerminalSize} from './ui.js';
+import {fetchMessagePage, hasOwnMessages, ownMessageIds} from './messages.js';
 import {footerShortcuts, legendRows, ShortcutLegend, type FooterState} from './Footer.js';
 import {wrapText} from './text.js';
 import {describeError} from './errors.js';
 import {commandFor} from './commands.js';
 import {Help} from './Help.js';
+import {viewOptionLines} from './ViewOptions.js';
 import {StatusBar, useNotice} from './StatusBar.js';
 import {useOperation} from './useOperation.js';
 import {Reader} from './Reader.js';
@@ -21,7 +22,7 @@ import {
   scanOwnMessages,
   selectedOwn,
 } from './operations.js';
-import {createDialogPager} from './dialogs.js';
+import {checkOwnChats, createDialogPager} from './dialogs.js';
 import type {Message} from './messages.js';
 import {initialView, viewReducer, visibleChats} from './state.js';
 
@@ -36,7 +37,9 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
   const {exit} = useApp();
   const size = useTerminalSize();
   const [state, dispatch] = useReducer(viewReducer, initialView);
-  const {includePrivate, view, history, messageIndex, selected} = state;
+  const {includePrivate, ownOnly, view, history, messageIndex, selected} = state;
+  const ownOnlyRef = useRef(ownOnly);
+  ownOnlyRef.current = ownOnly;
   const messages = history.items;
   const hasMore = history.more;
   const chats = visibleChats(state);
@@ -81,6 +84,39 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
   const selectAllPrompt = prompt.kind === 'select';
   const confirmationText = confirm?.text ?? '';
 
+  const checkChats = useCallback(
+    async (chats: Chat[], task: NonNullable<ReturnType<typeof begin>>) => {
+      task.update(0, {total: chats.length, label: 'Checking chats'});
+      const result = await checkOwnChats(client, chats, task, (completed, total) =>
+        task.update(completed, {total, label: 'Checking chats'}),
+      );
+      if (task.active && !result.complete)
+        notify(
+          result.failure
+            ? `Own-chat check failed: ${describeError(result.failure)}. The "With my messages" filter is off; press o to retry.`
+            : 'Stopped checking chats. The "With my messages" filter is off; press o to retry.',
+          result.failure ? 'error' : 'warning',
+        );
+      return result;
+    },
+    [client, notify],
+  );
+
+  const toggleOwnChats = async () => {
+    if (ownOnly) {
+      dispatch({type: 'ownFilter', enabled: false});
+      return;
+    }
+    const task = begin('Checking chats');
+    if (!task) return;
+    try {
+      const result = await checkChats(state.chats, task);
+      if (task.active && result.complete) dispatch({type: 'ownFilter', enabled: true, ids: result.ids});
+    } finally {
+      task.finish();
+    }
+  };
+
   useEffect(() => {
     let disposed = false;
     const task = begin('Connecting');
@@ -95,11 +131,17 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
         if (meResult.status === 'rejected') throw meResult.reason;
         const page = pageResult.value;
         const me = meResult.value;
+        const own =
+          !disposed && task.active && ownOnlyRef.current ? await checkChats(page.chats, task) : undefined;
         if (!disposed && task.active) {
           setSelfId(me.id.toString());
           setAccount(accountIdentity(me));
           setInitialization('ready');
-          dispatch({type: 'chats', chats: page.chats});
+          dispatch({
+            type: 'chats',
+            chats: page.chats,
+            ...(own ? {ownChatIds: own.ids, ownOnly: own.complete} : {}),
+          });
           setChatsMore(page.more);
         }
       } catch (error) {
@@ -117,7 +159,7 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
       task.finish();
       void pager.close().catch(() => {});
     };
-  }, [client, retry, begin, notify]);
+  }, [client, retry, begin, notify, checkChats]);
 
   const fetchPage = useCallback(
     (chat: Chat, offsetId = 0) => fetchMessagePage(client, chat.entity, selfId, view, offsetId),
@@ -131,13 +173,21 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
     if (!task) return;
     let disposed = false;
     void fetchMessagePage(client, activeEntity, selfId, view)
-      .then((items) => {
+      .then(async (items) => {
+        if (disposed || !task.active) return;
+        const hasOwn =
+          ownOnlyRef.current && !task.cancelled
+            ? view === 'mine'
+              ? items.length > 0
+              : items.some((message) => message.own) || (await hasOwnMessages(client, activeEntity))
+            : undefined;
         if (!disposed && task.active)
           dispatch({
             type: 'history',
             chatId: activeId,
             view,
             history: appendPage({items: [], cursor: 0, more: true}, items),
+            hasOwn,
           });
       })
       .catch((error) => {
@@ -157,9 +207,13 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
   useEffect(() => {
     if (initialization === 'ready' && !activeId && !state.query)
       notify(
-        includePrivate ? 'No chats found.' : 'No groups or channels found. Press p to show private chats.',
+        ownOnly
+          ? 'No loaded chats with your own messages. Press o to show all chats.'
+          : includePrivate
+            ? 'No chats found.'
+            : 'No groups or channels found. Press p to show private chats.',
       );
-  }, [initialization, activeId, includePrivate, state.query, notify]);
+  }, [initialization, activeId, includePrivate, ownOnly, state.query, notify]);
 
   const loadChats = async () => {
     const pager = dialogPager.current;
@@ -169,7 +223,13 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
     try {
       const page = await pager.next(task);
       if (!task.active) return;
-      dispatch({type: 'chats', chats: [...state.chats, ...page.chats]});
+      const own = ownOnly ? await checkChats(page.chats, task) : undefined;
+      if (!task.active) return;
+      dispatch({
+        type: 'chats',
+        chats: [...state.chats, ...page.chats],
+        ...(own ? {ownChatIds: new Set([...state.ownChatIds, ...own.ids]), ownOnly: own.complete} : {}),
+      });
       setChatsMore(page.more);
       if (task.cancelled) notify('Stopped loading chats after the current request.', 'warning');
     } catch (error) {
@@ -275,11 +335,15 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
       ? wrapText(`Search loaded chats: ${state.query || '(empty)'}${search ? '_' : ''}`, lineWidth)
       : [];
   const accountLines = wrapText(`Account: ${account}`, lineWidth);
-  const chatStateLines = wrapText(
-    `Chats: ${state.chats.length} loaded; ${chatsMore ? 'more may be available (m)' : initialization === 'ready' ? 'exhausted' : initialization}`,
-    lineWidth,
-  );
-  const chromeHeight = 3 + accountLines.length + chatStateLines.length + searchLines.length;
+  const optionsLines = viewOptionLines(lineWidth, {
+    view,
+    includePrivate,
+    ownOnly,
+    chats: state.chats.length,
+    messages: messages.length,
+    shortcuts: !progress && !search && !selectAllPrompt,
+  });
+  const chromeHeight = 3 + accountLines.length + optionsLines.length + searchLines.length;
   const footerState: FooterState = {
     focus,
     busy: Boolean(progress),
@@ -418,6 +482,9 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
       case 'private':
         dispatch({type: 'private'});
         break;
+      case 'ownChats':
+        void toggleOwnChats();
+        break;
       case 'view':
         dispatch({type: 'view'});
         break;
@@ -497,22 +564,11 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
 
   const chatStart = Math.max(0, chatIndex - listHeight + 1);
   const messageStart = Math.max(0, messageIndex - listHeight + 1);
-  const header = (title: string, panel: Focus, width: number) => (
-    <Row
-      width={width}
-      backgroundColor={focus === panel ? 'blueBright' : undefined}
-      color={focus === panel ? 'black' : 'white'}
-      bold
-    >
-      {`${focus === panel ? '[ACTIVE]' : '[      ]'} ${title}`}
-    </Row>
-  );
   const statusBar = (
     <StatusBar
       width={lineWidth}
-      view={view}
-      loaded={messages.length}
       hasMore={hasMore}
+      chatsMore={chatsMore}
       selected={selected.size}
       progress={progress}
       notice={notice}
@@ -572,8 +628,8 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
           {line}
         </Row>
       ))}
-      {chatStateLines.map((line, index) => (
-        <Row key={`chats-${index}`} width={lineWidth}>
+      {optionsLines.map((line, index) => (
+        <Row key={`options-${index}`} width={lineWidth} color="cyanBright">
           {line}
         </Row>
       ))}
@@ -587,11 +643,11 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
         height={listHeight + 1}
         chats={
           <>
-            {header(
-              `${includePrivate ? 'ALL CHATS' : 'GROUPS/CHANNELS'} (${chats.length})`,
-              'chats',
-              leftWidth,
-            )}
+            <PanelHeader
+              title={includePrivate ? 'ALL CHATS' : 'GROUPS/CHANNELS'}
+              active={focus === 'chats'}
+              width={leftWidth}
+            />
             {chats.slice(chatStart, chatStart + listHeight).map((chat) => {
               const current = chat.id === active?.id;
               return (
@@ -612,20 +668,18 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
                     ? 'Loading failed; r Retry'
                     : state.query
                       ? 'No matching loaded chats'
-                      : includePrivate
-                        ? 'No chats'
-                        : 'No groups/channels'}
+                      : ownOnly
+                        ? 'No chats with own messages'
+                        : includePrivate
+                          ? 'No chats'
+                          : 'No groups/channels'}
               </Row>
             )}
           </>
         }
         messages={
           <>
-            {header(
-              `MESSAGES [${view.toUpperCase()}] (${messages.length}) MARKED ${selected.size} — ${active?.title ?? 'No chat'}`,
-              'messages',
-              rightWidth,
-            )}
+            <PanelHeader title="MESSAGES" active={focus === 'messages'} width={rightWidth} />
             {messages.slice(messageStart, messageStart + listHeight).map((message, index) => {
               const current = messageStart + index === messageIndex;
               const checked = selected.has(message.id);

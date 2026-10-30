@@ -1,5 +1,27 @@
 import {chatsFromDialogs, type Chat, type DialogRecord} from './telegram.js';
 import type {Cancellation} from './operations.js';
+import {hasOwnMessages} from './messages.js';
+import type {TelegramApi} from './telegram.js';
+
+export async function checkOwnChats(
+  client: Pick<TelegramApi, 'getMessages'>,
+  chats: readonly Chat[],
+  task: Cancellation,
+  update: (checked: number, total: number) => void,
+): Promise<{ids: Set<string>; complete: boolean; failure?: unknown}> {
+  const ids = new Set<string>();
+  let checked = 0;
+  try {
+    for (const chat of chats) {
+      if (task.cancelled) break;
+      if (await hasOwnMessages(client, chat.entity)) ids.add(chat.id);
+      update(++checked, chats.length);
+    }
+    return {ids, complete: checked === chats.length && !task.cancelled};
+  } catch (failure) {
+    return {ids, complete: false, failure};
+  }
+}
 
 export const DIALOG_PAGE = 100;
 export type DialogSource = {iterDialogs(options: {limit?: number}): AsyncIterable<DialogRecord>};

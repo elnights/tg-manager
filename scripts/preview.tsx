@@ -60,7 +60,7 @@ if (process.argv.includes('--capture')) {
   ] as const) {
     const ui = testTerminal(<App client={syntheticClient()} settings={settings} />, {columns, rows});
     try {
-      await ui.waitFor((frame) => frame.includes('100 own messages loaded'));
+      await ui.waitFor((frame) => frame.includes('/ 100 msgs'));
       const lines = ui.frame().trimEnd().split('\n');
       const width = columns * 9 + 24;
       const height = rows * 19 + 36;

@@ -32,6 +32,7 @@ type Group =
   | 'Layout and settings';
 type Command = Shortcut & {
   id: string;
+  hint?: 'view' | 'help';
   group: Group;
   description: string;
   reference?: string;
@@ -54,6 +55,7 @@ export const commands: Command[] = [
   },
   {
     id: 'page',
+    hint: 'help',
     key: 'PgUp/PgDn',
     label: 'Page',
     group: 'Navigation',
@@ -63,6 +65,7 @@ export const commands: Command[] = [
   },
   {
     id: 'ends',
+    hint: 'help',
     key: 'Home/End',
     label: 'Ends',
     group: 'Navigation',
@@ -82,12 +85,24 @@ export const commands: Command[] = [
   },
   {
     id: 'private',
+    hint: 'view',
     key: 'p',
     label: 'Show/hide private',
     compactLabel: 'Private',
     group: 'Chat management',
     description: 'Include or hide private chats',
     chars: ['p'],
+    available: () => true,
+  },
+  {
+    id: 'ownChats',
+    hint: 'view',
+    key: 'o',
+    label: 'With my messages',
+    group: 'Chat management',
+    description:
+      'Show only loaded chats containing your own messages; Esc stops checks. New chat pages are checked too.',
+    chars: ['o'],
     available: () => true,
   },
   {
@@ -131,6 +146,7 @@ export const commands: Command[] = [
   },
   {
     id: 'view',
+    hint: 'view',
     key: 'v',
     label: 'Mine/All',
     compactLabel: 'View',
@@ -221,6 +237,7 @@ export const commands: Command[] = [
   },
   {
     id: 'width',
+    hint: 'help',
     key: '[ ]',
     reference: '[ / ]',
     label: 'Resize',
@@ -231,6 +248,7 @@ export const commands: Command[] = [
   },
   {
     id: 'reset',
+    hint: 'help',
     key: '0',
     label: 'Reset width',
     compactLabel: 'Reset',
@@ -353,6 +371,7 @@ function activeBindings(state: FooterState): Binding[] {
       ...modalBindings[mode].filter((binding) => !binding.available || binding.available(state)),
       interrupt,
     ];
+  if (state.promptVisible === false) return [helpBinding, interrupt];
   return commands.filter((command) => command.available(state));
 }
 function matches(binding: Binding, input: string, key: Key): boolean {
@@ -365,19 +384,12 @@ export function commandFor(input: string, key: Key, state: FooterState): string 
   return activeBindings(state).find((binding) => matches(binding, input, key))?.id;
 }
 export function footerShortcuts(state: FooterState): Shortcut[] {
-  const bindings = activeBindings(state);
+  const bindings = activeBindings(state).filter((binding) => !('hint' in binding && binding.hint));
   // Help is matched first so a text editor cannot consume '?', and displayed last.
   const ordered = bindings[0] === helpBinding ? [...bindings.slice(1, -1), helpBinding, interrupt] : bindings;
   return ordered.map((binding) => ({
     key: binding.key,
-    label:
-      binding.id === 'private'
-        ? state.includePrivate
-          ? 'Hide private'
-          : 'Show private'
-        : binding.id === 'confirmSubmit' && !state.canConfirm
-          ? 'Validate'
-          : binding.label,
+    label: binding.id === 'confirmSubmit' && !state.canConfirm ? 'Validate' : binding.label,
     compactLabel: binding.compactLabel,
   }));
 }

@@ -7,17 +7,17 @@ package's allowlist.
 
 ## Module map
 
-| Area              | Files                                                                                           | Responsibility                                                                                            |
-| ----------------- | ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Startup           | `src/cli.ts`, `src/index.tsx`, `src/client.ts`                                                  | CLI options, credentials, client connection/disconnection, session persistence and terminal lifecycle     |
-| Login             | `src/CredentialPrompt.tsx`, `src/credentials.ts`, `src/Auth.tsx`                                | Credential validation, QR/cloud-password input, retries and cancellation                                  |
-| Controller        | `src/App.tsx`, `src/state.ts`                                                                   | Effects, initialization/retry, active chat/view, filtering, atomic selection changes and captured prompts |
-| Telegram boundary | `src/telegram.ts`, `src/messages.ts`                                                            | Narrow client interfaces, typed records, message conversion, authorship checks and absence verification   |
-| Operations        | `src/operations.ts`, `src/dialogs.ts`, `src/useOperation.ts`                                    | Pagination, own-message scanning, verified deletion and operation lifecycle                               |
-| Commands          | `src/commands.ts`                                                                               | Bindings, aliases, availability, footer labels and help data, including prompts/readers                   |
-| UI                | `src/Confirmation.tsx`, `src/Reader.tsx`, `src/Help.tsx`, `src/Footer.tsx`, `src/StatusBar.tsx` | Measured confirmation, isolated scrolling overlays, footer, progress and persistent notices               |
-| Terminal text     | `src/ui.tsx`, `src/text.ts`, `src/terminal-output.ts`                                           | Panel dimensions, grapheme-safe rows/wrapping and physical terminal-cell repair                           |
-| Storage           | `src/session.ts`, `src/settings.ts`                                                             | Private session storage/migration and injectable layout settings                                          |
+| Area              | Files                                                                                                                  | Responsibility                                                                                            |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| Startup           | `src/cli.ts`, `src/index.tsx`, `src/client.ts`                                                                         | CLI options, credentials, client connection/disconnection, session persistence and terminal lifecycle     |
+| Login             | `src/CredentialPrompt.tsx`, `src/credentials.ts`, `src/Auth.tsx`                                                       | Credential validation, QR/cloud-password input, retries and cancellation                                  |
+| Controller        | `src/App.tsx`, `src/state.ts`                                                                                          | Effects, initialization/retry, active chat/view, filtering, atomic selection changes and captured prompts |
+| Telegram boundary | `src/telegram.ts`, `src/messages.ts`                                                                                   | Narrow client interfaces, typed records, message conversion, authorship checks and absence verification   |
+| Operations        | `src/operations.ts`, `src/dialogs.ts`, `src/useOperation.ts`                                                           | Pagination, own-message scanning, verified deletion and operation lifecycle                               |
+| Commands          | `src/commands.ts`                                                                                                      | Bindings, aliases, availability, footer labels and help data, including prompts/readers                   |
+| UI                | `src/Confirmation.tsx`, `src/Reader.tsx`, `src/Help.tsx`, `src/Footer.tsx`, `src/StatusBar.tsx`, `src/ViewOptions.tsx` | Measured confirmation, isolated scrolling overlays, footer, progress and persistent notices               |
+| Terminal text     | `src/ui.tsx`, `src/text.ts`, `src/terminal-output.ts`                                                                  | Panel dimensions, grapheme-safe rows/wrapping and physical terminal-cell repair                           |
+| Storage           | `src/session.ts`, `src/settings.ts`                                                                                    | Private session storage/migration and injectable layout settings                                          |
 
 Keep the Ink/React/TypeScript app small. Share related behavior at these existing
 boundaries before introducing another abstraction or runtime dependency. The
@@ -30,7 +30,11 @@ package exposes a CLI, with no supported programmatic API.
 - Use stable chat IDs, never a list index or title, to associate state and results.
   `viewReducer` clears messages and selection atomically when the active chat or
   message view changes. Filtering/refreshing preserves marks if the active chat
-  remains visible.
+  remains visible. Own-chat filtering applies completed server-filtered existence
+  checks by stable chat ID, independently of the message-author view. Recheck new
+  dialog pages and refreshed lists; failed/cancelled checks turn the filter off
+  and retain received dialogs. Refreshing a chat after its last own message is
+  deleted removes it atomically from the filtered list.
 - Only own messages may enter a deletion target. Mine uses Telegram's own-message
   filter; All checks sender identity or outgoing private-message metadata. An
   outgoing channel post alone is insufficient proof of authorship.
@@ -78,9 +82,14 @@ package exposes a CLI, with no supported programmatic API.
 - Keep routine loading feedback in the bottom status area. Reserve the normal
   footer's space while busy so chat lists do not move or change viewport height.
   Do not insert transient banners above the panels during chat navigation.
+  Keep the view strip height stable during message loading and focus changes.
+  Use explicit white on dark blue for active headers, with a textual focus marker
+  so focus stays visible across terminal palettes.
 - Derive matching, availability and advertised bindings from `commands.ts`.
-  Keep every active binding discoverable. Readers/help isolate input from the
-  underlying app; help may overlay an existing prompt.
+  Show view toggles and exact loaded counts in the top view strip; reserve the
+  footer for actions. Extended navigation and layout bindings stay in help.
+  Keep every active binding discoverable through the strip, footer or help.
+  Readers/help isolate input from the underlying app; help may overlay an existing prompt.
 - Progress takes precedence during work. Preserve errors/results until
   acknowledged, with full text in the notice reader. Successful confirmation
   clears resolved validation warnings without discarding earlier results.
@@ -94,7 +103,7 @@ package exposes a CLI, with no supported programmatic API.
 | Change                                                                 | Relevant coverage                                   |
 | ---------------------------------------------------------------------- | --------------------------------------------------- |
 | Confirmation, login, retry and notice retention                        | `test/safety.test.tsx`                              |
-| Own-message selection and message views                                | `test/features.test.tsx`                            |
+| Own-message selection and message views                                | `test/features.test.tsx`, `test/own-chats.test.tsx` |
 | Pagination, deletion verification and settings failures                | `test/operations.test.tsx`                          |
 | Search, dialog pages, detail input isolation and stable loading layout | `test/navigation.test.tsx`                          |
 | Footer/help availability, cancellation and deletion UI                 | `test/ux.test.tsx`                                  |

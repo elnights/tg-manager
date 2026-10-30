@@ -33,6 +33,19 @@ export function Row({width, children, color, backgroundColor, bold}: RowProps) {
   );
 }
 
+export function PanelHeader({title, active, width}: {title: string; active: boolean; width: number}) {
+  return (
+    <Row
+      width={width}
+      backgroundColor={active ? '#1e3a8a' : undefined}
+      color={active ? '#ffffff' : 'white'}
+      bold
+    >
+      {`${active ? '[ACTIVE]' : '[      ]'} ${title}`}
+    </Row>
+  );
+}
+
 export function panelWidths(columns: number, chatPercent: number) {
   // Leave one physical column free to avoid terminal auto-wrap on the last cell.
   const width = Math.max(0, Math.floor(columns) - 1);
