@@ -6,7 +6,7 @@ import {Box, render, renderToString, useInput} from 'ink';
 import headless from '@xterm/headless';
 import unicodeGraphemes from '@xterm/addon-unicode-graphemes';
 import {TerminalOutput} from '../src/terminal-output.js';
-import {adjustChatPercent, panelWidths, Panels, Row, useTerminalSize} from '../src/ui.js';
+import {adjustChatPercent, panelWidths, Panels, PanelHeader, Row, useTerminalSize} from '../src/ui.js';
 
 const {Terminal} = headless;
 const {UnicodeGraphemesAddon} = unicodeGraphemes;
@@ -69,6 +69,27 @@ function fixture(title: string, leftWidth: number, selected = true) {
     {columns: 80},
   );
 }
+
+test('active pane headers use white on dark blue and keep their textual focus marker', async () => {
+  const emulator = terminal('6');
+  try {
+    emulator.write(renderToString(<PanelHeader title="CHATS" active width={30} />, {columns: 80}));
+    await new Promise<void>((resolve) => emulator.write('', resolve));
+    const line = emulator.buffer.active.getLine(0)!;
+    assert.ok(line.translateToString().startsWith('[ACTIVE] CHATS'));
+    for (const column of [0, 9, 29]) {
+      const cell = line.getCell(column)!;
+      if (column < 13)
+        assert.ok([15, 231, 0xffffff].includes(cell.getFgColor()), 'active header text must be white');
+      assert.ok(
+        [4, 61, 0x1e3a8a].includes(cell.getBgColor()),
+        'the whole header must have a dark blue background',
+      );
+    }
+  } finally {
+    emulator.dispose();
+  }
+});
 
 test('reproduces the old test blind spot: Ink output alone does not fix the physical divider column', async () => {
   for (const [profile, expected] of [

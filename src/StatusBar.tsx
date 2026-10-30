@@ -1,7 +1,6 @@
 import React, {useCallback, useEffect, useState} from 'react';
 import {Box, Text} from 'ink';
 import stringWidth from 'string-width';
-import type {MessageView} from './messages.js';
 import {singleLine} from './ui.js';
 
 export type Notice = {text: string; level: 'info' | 'result' | 'warning' | 'error'; source?: 'validation'};
@@ -45,6 +44,8 @@ export function useNotice() {
 }
 
 export function progressText(progress: Progress): string {
+  if (progress.label === 'Checking chats')
+    return `${progress.cancelling ? 'Stopping chat checks' : 'Checking chats'}${progress.completed === undefined ? '' : ` · ${progress.completed.toLocaleString('en-US')} / ${progress.total?.toLocaleString('en-US')} checked`}`;
   if (progress.label === 'Loading' || progress.label === 'Selecting')
     return progress.cancelling ? `Stopping ${progress.label.toLowerCase()}` : `${progress.label} history`;
   const count = progress.completed?.toLocaleString('en-US');
@@ -63,23 +64,20 @@ export function progressText(progress: Progress): string {
 
 export function StatusBar({
   width,
-  view,
-  loaded,
   hasMore,
+  chatsMore = false,
   selected,
   progress,
   notice,
 }: {
   width: number;
-  view: MessageView;
-  loaded: number;
   hasMore: boolean;
+  chatsMore?: boolean;
   selected: number;
   progress: Progress | null;
   notice: Notice | null;
 }) {
-  const count = `${loaded.toLocaleString('en-US')} ${view === 'mine' ? 'own ' : ''}message${loaded === 1 ? '' : 's'} loaded`;
-  const summary = `${view === 'mine' ? 'Mine' : 'All'} · ${count} · ${selected.toLocaleString('en-US')} selected${hasMore ? ' · More may be available' : ''}`;
+  const summary = `${selected.toLocaleString('en-US')} selected${hasMore ? ' · More may be available' : ''}${chatsMore ? ' · More chats may be available' : ''}`;
   const activity = progress ? progressText(progress) : null;
   // Progress leads during requests. Sticky notices remain in the details reader
   // until acknowledged; routine information uses spare cells and expires.

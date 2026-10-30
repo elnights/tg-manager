@@ -4,6 +4,14 @@ export const PAGE = 100;
 export type MessageView = 'mine' | 'all';
 export type Message = {id: number; date: string; content: string; own: boolean; author: string};
 
+export async function hasOwnMessages(
+  client: Pick<TelegramApi, 'getMessages'>,
+  entity: Entity,
+): Promise<boolean> {
+  const messages = await client.getMessages(entity, {limit: 1, fromUser: 'me'});
+  return messages.some((message) => message && message.className !== 'MessageEmpty');
+}
+
 function authorName(message: MessageRecord): string {
   const sender = message.sender;
   if (sender) {

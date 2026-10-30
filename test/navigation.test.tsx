@@ -74,7 +74,7 @@ test('search filters only loaded chats, preserves marks on same identity, clears
   const mock = fixture();
   const ui = testTerminal(<App client={mock.client} />);
   try {
-    await ui.waitFor((frame) => frame.includes('45 own messages loaded'));
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
     assert.equal(mock.calls.dialogs, 100);
     await ui.press('\t');
     await ui.press(' ');
@@ -94,12 +94,14 @@ test('search filters only loaded chats, preserves marks on same identity, clears
     await ui.press('/');
     for (let index = 0; index < 10; index++) await ui.press('\x7f');
     await ui.press('\r');
-    await ui.waitFor((frame) => frame.includes('45 own messages loaded'));
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
     await ui.press('m');
-    await ui.waitFor((frame) => frame.includes('200 loaded'));
+    await ui.waitFor((frame) => frame.includes('200 chats'));
     assert.equal(mock.calls.dialogs, 200);
     await ui.press('m');
-    await ui.waitFor((frame) => frame.includes('205 loaded; exhausted'));
+    await ui.waitFor(
+      (frame) => frame.includes('205 chats') && !frame.includes('More chats may be available'),
+    );
   } finally {
     await ui.close();
   }
@@ -108,7 +110,7 @@ test('refresh preserves active ID and selection when dialogs reorder', async () 
   const mock = fixture(3);
   const ui = testTerminal(<App client={mock.client} />);
   try {
-    await ui.waitFor((frame) => frame.includes('45 own messages loaded'));
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
     await ui.press('\x1b[B');
     await ui.waitFor((frame) => frame.includes('TG MANAGER / Group 001'));
     await ui.press('\t');
@@ -116,7 +118,7 @@ test('refresh preserves active ID and selection when dialogs reorder', async () 
     mock.dialogs.reverse();
     await ui.press('R');
     await ui.waitFor((frame) => frame.includes('1 selected') && frame.includes('TG MANAGER / Group 001'));
-    assert.match(ui.frame(), /MARKED 1/);
+    assert.match(ui.frame(), /1 selected/);
   } finally {
     await ui.close();
   }
@@ -141,7 +143,7 @@ for (const columns of [80, 40, 25]) {
         return divider < 0 ? [] : [{row, text: line.slice(0, divider).trim().replace(/^>\s*/, '')}];
       });
     try {
-      await ui.waitFor((frame) => frame.includes('45 own messages') && !frame.includes('Loading history'));
+      await ui.waitFor((frame) => frame.includes('45 msgs') && !frame.includes('Loading history'));
       const before = chatRows(ui.frame());
       assert.ok(before.length > 1, 'the chat list must be visible');
       await ui.press('\x1b[B');
@@ -161,7 +163,7 @@ test('list pages and ends use viewport bounds; message detail isolates keys and 
   const mock = fixture(30);
   const ui = testTerminal(<App client={mock.client} />, {columns: 80, rows: 24});
   try {
-    await ui.waitFor((frame) => frame.includes('45 own messages loaded'));
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
     await ui.press('\x1b[F');
     await ui.waitFor((frame) => frame.includes('TG MANAGER / Group 029'));
     await ui.press('\x1b[H');
@@ -207,13 +209,15 @@ test('failed incremental dialog loading is actionable and R restarts with a fres
   };
   const ui = testTerminal(<App client={mock.client} />);
   try {
-    await ui.waitFor((frame) => frame.includes('45 own messages loaded'));
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
     await ui.press('m');
     await ui.waitFor((frame) => frame.includes('Synthetic page failure'));
     await ui.press('R');
-    await ui.waitFor((frame) => !frame.includes('Connecting') && frame.includes('100 loaded'));
+    await ui.waitFor((frame) => !frame.includes('Connecting') && frame.includes('100 chats'));
     await ui.press('m');
-    await ui.waitFor((frame) => frame.includes('105 loaded; exhausted'));
+    await ui.waitFor(
+      (frame) => frame.includes('105 chats') && !frame.includes('More chats may be available'),
+    );
   } finally {
     await ui.close();
   }

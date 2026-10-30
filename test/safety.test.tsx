@@ -46,7 +46,7 @@ test('confirmation shows captured account, duplicate-title ID, scope and exact c
   const mock = fixture();
   const ui = testTerminal(<App client={appClient(mock.client)} />);
   try {
-    await ui.waitFor((frame) => frame.includes('1 own message loaded'));
+    await ui.waitFor((frame) => frame.includes('/ 1 msgs'));
     await ui.press('\x1b[B');
     await ui.press('A');
     await ui.waitFor((frame) => frame.includes('Type DELETE'));
@@ -72,7 +72,7 @@ test('25x24 and long titles cannot accept hidden input; resizing typed DELETE ca
   const mock = fixture('Long title '.repeat(100));
   const ui = testTerminal(<App client={appClient(mock.client)} />);
   try {
-    await ui.waitFor((frame) => frame.includes('1 own message loaded'));
+    await ui.waitFor((frame) => frame.includes('/ 1 msgs'));
     await ui.press('A');
     await ui.waitFor((frame) => frame.includes('Type DELETE'));
     assert.match(ui.frame(), /Chat ID: -10001/);
@@ -131,7 +131,7 @@ test('a resolved confirmation warning clears before deletion progress and long r
   };
   const ui = testTerminal(<App client={appClient(mock.client)} />);
   try {
-    await ui.waitFor((frame) => frame.includes('1 own message loaded'));
+    await ui.waitFor((frame) => frame.includes('/ 1 msgs'));
     await ui.press('A');
     await ui.waitFor((frame) => frame.includes('Type DELETE'));
     await ui.press('\r');
@@ -283,7 +283,7 @@ test('a later reload error retains the unacknowledged deletion result in notice 
   };
   const ui = testTerminal(<App client={appClient(mock.client)} />);
   try {
-    await ui.waitFor((frame) => frame.includes('1 own message loaded'));
+    await ui.waitFor((frame) => frame.includes('/ 1 msgs'));
     await ui.press('A');
     await ui.waitFor((frame) => frame.includes('Type DELETE'));
     await ui.press('DELETE');

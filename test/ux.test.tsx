@@ -7,6 +7,8 @@ import {stripVTControlCharacters} from 'node:util';
 import type {TelegramApi} from '../src/telegram.js';
 import {App} from './helpers/App.js';
 import {Footer, footerShortcuts, legendRows, type FooterState} from '../src/Footer.js';
+import {commandFor, commands} from '../src/commands.js';
+import {viewOptionLines} from '../src/ViewOptions.js';
 import {StatusBar} from '../src/StatusBar.js';
 import {Help, helpSections} from '../src/Help.js';
 import {absentMessageIds} from '../src/messages.js';
@@ -66,7 +68,7 @@ test('every active binding survives label shortening and wrapping in either pane
 });
 
 test('the active-binding list includes every global key and excludes paused application commands', () => {
-  const globals = ['Tab/←→', 'p', 'v', 'r', 'A', '[ ]', '0', 'q/Ctrl+C', '?'];
+  const globals = ['Tab/←→', 'r', 'A', 'q/Ctrl+C', '?'];
   for (const focus of ['chats', 'messages'] as const) {
     const keys = footerShortcuts({...footerState, focus, selected: 12, hasNotice: true}).map(
       (item) => item.key,
@@ -92,8 +94,6 @@ test('the active-binding list includes every global key and excludes paused appl
 test('status keeps summary alongside information and distinguishes requested from verified progress', () => {
   const props = {
     width: 150,
-    view: 'mine' as const,
-    loaded: 100,
     hasMore: true,
     selected: 12,
     progress: null,
@@ -101,7 +101,7 @@ test('status keeps summary alongside information and distinguishes requested fro
   };
   assert.match(
     plain(<StatusBar {...props} notice={{text: 'Selected loaded messages.', level: 'info'}} />),
-    /Mine · 100 own messages loaded · 12 selected · More may be available · Selected loaded messages/,
+    /12 selected · More may be available · Selected loaded messages/,
   );
   assert.match(
     plain(<StatusBar {...props} progress={{label: 'Scanning', completed: 2450}} />),
@@ -118,24 +118,36 @@ test('status keeps summary alongside information and distinguishes requested fro
   assert.match(narrow, /Loading/);
 });
 
-test('loaded count is exact and history availability is a separate statement', () => {
-  for (const view of ['mine', 'all'] as const)
-    for (const hasMore of [true, false]) {
-      const output = plain(
-        <StatusBar
-          width={100}
-          view={view}
-          loaded={100}
-          hasMore={hasMore}
-          selected={0}
-          progress={null}
-          notice={null}
-        />,
-      );
-      assert.ok(output.includes(view === 'mine' ? '100 own messages loaded' : '100 messages loaded'));
-      assert.equal(output.includes('More may be available'), hasMore);
-      assert.ok(!output.includes('100+'));
-    }
+test('view options show exact counts separately from actions at wide and narrow sizes', () => {
+  for (const width of [24, 39, 59, 79, 119, 199])
+    for (const view of ['mine', 'all'] as const)
+      for (const includePrivate of [true, false]) {
+        const lines = viewOptionLines(width, {view, includePrivate, chats: 205, messages: 100});
+        const text = lines.join(' ');
+        assert.ok(text.includes(view === 'mine' ? 'Mine [v]' : 'All [v]'));
+        assert.ok(text.includes(`Private: ${includePrivate ? 'on' : 'off'} [p]`));
+        assert.ok(text.includes(`With my messages${width < 30 ? ' ' : ': '}off [o]`));
+        assert.ok(text.includes('205 chats') && text.includes('100 msgs'));
+        assert.ok(!text.includes('100+'));
+        assert.ok(lines.every((line) => stringWidth(line) <= width));
+      }
+  const keys = footerShortcuts(footerState).map((item) => item.key);
+  for (const key of ['p', 'v', 'o', '[ ]', '0', 'PgUp/PgDn', 'Home/End']) assert.ok(!keys.includes(key));
+  for (const [input, id] of [
+    ['p', 'private'],
+    ['v', 'view'],
+    ['o', 'ownChats'],
+    ['[', 'width'],
+    [']', 'width'],
+    ['0', 'reset'],
+  ])
+    assert.equal(commandFor(input!, {} as Parameters<typeof commandFor>[1], footerState), id);
+  for (const command of commands)
+    assert.ok(
+      helpSections.some((section) =>
+        section.entries.some(([key]) => key === (command.reference ?? command.key)),
+      ),
+    );
 });
 
 function deferred<T>() {
@@ -190,9 +202,7 @@ function fixture(count = 2) {
   return {client, calls, records, deleted};
 }
 async function ready(ui: ReturnType<typeof testTerminal>) {
-  await ui.waitFor(
-    (frame) => /Mine · [1-9][\d,]* own messages loaded/.test(frame) && !frame.includes('Loading history'),
-  );
+  await ui.waitFor((frame) => /\/ [1-9][\d,]* msgs/.test(frame) && !frame.includes('Loading history'));
 }
 async function confirm(ui: ReturnType<typeof testTerminal>) {
   for (const letter of 'DELETE') await ui.press(letter);
@@ -204,18 +214,18 @@ test('normal-width UI keeps A and c discoverable and shows one stable exact load
   const ui = testTerminal(<App client={mock.client satisfies TelegramApi} />, {columns: 80, rows: 24});
   const footer = () => {
     const lines = ui.frame().trimEnd().split('\n');
-    return lines.slice(lines.findIndex((line) => line.startsWith('Mine ·')) + 1).join(' ');
+    return lines.slice(lines.findIndex((line) => /^\d[\d,]* selected/.test(line)) + 1).join(' ');
   };
   const status = () =>
     ui
       .frame()
       .trimEnd()
       .split('\n')
-      .find((line) => line.startsWith('Mine ·'))!
+      .find((line) => /^\d[\d,]* selected/.test(line))!
       .trim();
   try {
     await ready(ui);
-    const initial = 'Mine · 100 own messages loaded · 0 selected · More may be available';
+    const initial = '0 selected · More may be available';
     assert.equal(status(), initial);
     assert.match(footer(), /(?:^| )A(?: |$)/);
     assert.equal(mock.calls.pages, 1, 'display changes must not trigger an extra page request');
@@ -235,11 +245,11 @@ test('normal-width UI keeps A and c discoverable and shows one stable exact load
     await ui.press('n');
     await ui.waitFor(
       (frame) =>
-        frame.includes('100 own messages loaded') &&
+        frame.includes('/ 100 msgs') &&
         !frame.includes('More may be available') &&
         !frame.includes('Loading history'),
     );
-    assert.equal(status(), 'Mine · 100 own messages loaded · 0 selected');
+    assert.equal(status(), '0 selected');
     assert.match(footer(), /(?:^| )A(?: |$)/);
     assert.ok(!footer().split(/\s+/).includes('n') && !footer().split(/\s+/).includes('L'));
     assert.ok(ui.frames.every((frame) => !frame.includes('100+') && !frame.includes('Loaded 100')));
@@ -254,12 +264,12 @@ test('the rendered legend includes all working keys after focus, selection and t
   const ui = testTerminal(<App client={mock.client satisfies TelegramApi} />, {columns: 80, rows: 24});
   const legend = () => {
     const lines = ui.frame().trimEnd().split('\n');
-    return lines.slice(lines.findIndex((line) => line.startsWith('Mine ·')) + 1).join('\n');
+    return lines.slice(lines.findIndex((line) => /^\d[\d,]* selected/.test(line)) + 1).join('\n');
   };
   const assertKeys = (keys: string[]) => {
     for (const key of keys) assert.ok(legend().includes(key), `missing ${key}: ${legend()}`);
   };
-  const globalKeys = ['↑↓/jk', 'Tab/←→', 'p', 'v', 'r', 'A', '[ ]', '0', 'q/Ctrl+C', '?'];
+  const globalKeys = ['↑↓/jk', 'Tab/←→', 'r', 'A', 'q/Ctrl+C', '?'];
   try {
     await ready(ui);
     // There is one chat, so only the messages panel has navigation work to do.
@@ -299,7 +309,7 @@ test('when the terminal cannot fit active keys, only the displayed escape routes
     await ui.waitFor((frame) => frame.includes('Esc/?'));
     await ui.press('\x1b');
     await ui.resize(80, 24);
-    await ui.waitFor((frame) => frame.includes('Mine · 2 own messages loaded'));
+    await ui.waitFor((frame) => frame.includes('Loaded: 1 chats / 2 msgs'));
     assert.equal(mock.calls.pages, 1);
     assert.ok(ui.frame().includes('GROUPS/'), 'hidden private-chat shortcut must not run');
   } finally {
@@ -321,7 +331,8 @@ test('help opens and closes with ? or Esc, isolates input, and makes no Telegram
     assert.deepEqual(mock.calls, before);
     await ui.press('?');
     await ui.waitFor((frame) => frame.includes('TG MANAGER'));
-    assert.match(ui.frame(), /Mine · 2 own messages loaded · 0 selected/);
+    assert.ok(ui.frame().includes('Loaded: 1 chats / 2 msgs'));
+    assert.match(ui.frame(), /0 selected/);
     await ui.press('?');
     await ui.press('\x1b');
     await ui.waitFor((frame) => frame.includes('TG MANAGER'));
@@ -433,7 +444,7 @@ test('load-all publishes progress, prevents duplicate requests, and Esc keeps th
     await ui.waitFor((frame) => frame.includes('Stopping'));
     gate.resolve(mock.records.slice(100, 200));
     await ui.waitFor((frame) => frame.includes('Stopped loading at 200 loaded'));
-    assert.ok(ui.frame().includes('(200)'));
+    assert.ok(ui.frame().includes('/ 200 msgs'));
     assert.equal(mock.calls.pages, 2);
     assert.equal(mock.calls.deletes.length, 0);
   } finally {
@@ -513,7 +524,7 @@ test('failed deletion reports no unacknowledged success and its error survives r
     await confirm(ui);
     await ui.waitFor((frame) => frame.includes('0 / 2 requested; 0 verified absent'));
     assert.ok(ui.frame().includes('synthetic request failure'));
-    assert.ok(ui.frame().includes('(2)'));
+    assert.ok(ui.frame().includes('/ 2 msgs'));
     assert.equal(mock.calls.verifies, 0);
     await ui.press('r');
     await ui.waitFor((frame) => frame.includes('synthetic request failure'));
