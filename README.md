@@ -10,8 +10,8 @@ Synthetic example (no account data):
 TG MANAGER / Weekend project
 [ACTIVE] GROUPS/CHANNELS          MESSAGES [MINE]
 > Weekend project                > [ ] You: Example message
-Mine · 100+ loaded · 0 selected
-Tab Switch · p Private · [ ] Resize · ? Help
+Mine · 100 own messages loaded · 0 selected · More may be available
+Tab Panel  p Private  v View  A Delete all  [ ] Resize  ? Help
 ```
 
 ## Installation
@@ -68,7 +68,11 @@ See [storage and migration](docs/storage.md) before moving an existing install.
 
 Keys are case-sensitive. The footer adapts to focus and available actions.
 The status bar shows the view, loaded and selected counts, and operation progress.
-`100+` means another page may exist; reaching the end removes the `+`.
+Loaded counts are exact. “More may be available” means the next page has not
+yet been checked; it disappears once the end of the history is confirmed.
+`A` stays visible for an active chat; `c` appears when messages are selected.
+Routine loading and selection updates change the counters without flashing
+a second notification.
 All-authors mode labels senders; other people's messages are read-only (`[-]`).
 
 ## Deletion safety

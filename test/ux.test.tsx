@@ -24,8 +24,10 @@ test('footer shows only available actions with complete bindings across narrow w
     assert.ok(stringWidth(output) <= width);
     assert.ok(!output.includes('|') && !output.includes('…'), 'drop whole shortcuts instead of truncating');
     if (width >= 6) assert.ok(output.includes('? Help'));
-    if (focus === 'chats') assert.ok(!output.includes('Select') && !output.includes('Delete'));
-    else assert.ok(!output.includes('Private') && !output.includes('Resize') && !output.includes('Delete'));
+    assert.ok(!output.includes('d Delete') && !output.includes('c Clear'));
+    if (focus === 'chats') assert.ok(!output.includes('Space') && !output.includes('s Select'));
+    else assert.ok(!output.includes('Private') && !output.includes('Resize'));
+    if (width >= 24) assert.ok(output.includes('A Delete all'));
   }
   const selected = plain(<Footer width={140} {...footerState} focus="messages" selected={2}/>);
   assert.match(selected, /d Delete/);
@@ -41,13 +43,39 @@ test('footer shows only available actions with complete bindings across narrow w
 test('status keeps summary alongside information and distinguishes requested from verified progress', () => {
   const props = {width: 150, view: 'mine' as const, loaded: 100, hasMore: true, selected: 12, progress: null, notice: null};
   assert.match(plain(<StatusBar {...props} notice={{text: 'Selected loaded messages.', level: 'info'}}/>),
-    /Mine · 100\+ loaded · 12 selected · Selected loaded messages/);
+    /Mine · 100 own messages loaded · 12 selected · More may be available · Selected loaded messages/);
   assert.match(plain(<StatusBar {...props} progress={{label: 'Scanning', completed: 2450}}/>), /Scanning · 2,450 found/);
   assert.match(plain(<StatusBar {...props} progress={{label: 'Deleting', completed: 400, total: 1200, verified: 300}}/>),
     /Deleting · 400 \/ 1,200 requested · 300 verified/);
   const narrow = plain(<StatusBar {...props} width={30} progress={{label: 'Loading', completed: 200}}/>, 30);
   assert.equal(narrow.includes('\n'), false);
   assert.match(narrow, /Loading/);
+});
+
+test('delete-all and clear selection stay visible in both panels as other hints lose priority', () => {
+  for (const focus of ['chats', 'messages'] as const) for (const width of [39, 59, 79, 119, 199]) {
+    const output = plain(<Footer width={width} {...footerState} focus={focus} selected={12}/>, width);
+    assert.match(output, /A Delete all/);
+    assert.match(output, /c Clear/);
+    if (focus === 'messages') assert.match(output, /d Delete/);
+    assert.ok(stringWidth(output) <= width);
+    assert.ok(!output.includes('\n'));
+  }
+  const noChat = plain(<Footer width={199} {...footerState} hasChat={false}/>);
+  assert.ok(!noChat.includes('A Delete all'));
+  const noSelection = plain(<Footer width={199} {...footerState}/>);
+  assert.ok(!noSelection.includes('c Clear'));
+  const normal = plain(<Footer width={79} {...footerState} focus="messages" selected={12}/>, 79);
+  for (const key of ['Space Mark', 's Own', 'n Next', 'L Load all', '? Help']) assert.ok(normal.includes(key), normal);
+});
+
+test('loaded count is exact and history availability is a separate statement', () => {
+  for (const view of ['mine', 'all'] as const) for (const hasMore of [true, false]) {
+    const output = plain(<StatusBar width={100} view={view} loaded={100} hasMore={hasMore} selected={0} progress={null} notice={null}/>);
+    assert.ok(output.includes(view === 'mine' ? '100 own messages loaded' : '100 messages loaded'));
+    assert.equal(output.includes('More may be available'), hasMore);
+    assert.ok(!output.includes('100+'));
+  }
 });
 
 function deferred<T>() {
@@ -74,11 +102,45 @@ function fixture(count = 2) {
   };
   return {client, calls, records, deleted};
 }
-async function ready(ui: ReturnType<typeof testTerminal>) {await ui.waitFor(frame => /Loaded \d+ own messages\./.test(frame));}
+async function ready(ui: ReturnType<typeof testTerminal>) {await ui.waitFor(frame => /Mine · [1-9][\d,]* own messages loaded/.test(frame) && !frame.includes('Loading history'));}
 async function confirm(ui: ReturnType<typeof testTerminal>) {
   for (const letter of 'DELETE') await ui.press(letter);
   await ui.press('\r');
 }
+
+test('normal-width UI keeps A and c discoverable and shows one stable exact load count', async () => {
+  const mock = fixture(100);
+  const ui = testTerminal(<App client={mock.client as unknown as TelegramClient}/>, {columns: 80, rows: 24});
+  const footer = () => ui.frame().trimEnd().split('\n').at(-1)!;
+  const status = () => ui.frame().trimEnd().split('\n').at(-2)!.trim();
+  try {
+    await ready(ui);
+    const initial = 'Mine · 100 own messages loaded · 0 selected · More may be available';
+    assert.equal(status(), initial);
+    assert.match(footer(), /A Delete all/);
+    assert.equal(mock.calls.pages, 1, 'display changes must not trigger an extra page request');
+    await ui.press('\t');
+    assert.match(footer(), /A Delete all/);
+    await ui.press(' ');
+    assert.match(footer(), /c Clear/);
+    assert.match(footer(), /A Delete all/);
+    await ui.press('\t');
+    assert.match(footer(), /c Clear/);
+    await ui.press('c');
+    assert.equal(status(), initial);
+    assert.ok(!footer().includes('c Clear'));
+    await ui.press('p');
+    assert.equal(status(), initial, 'toggling chat visibility must not flash another status');
+    await ui.press('\t');
+    await ui.press('n');
+    await ui.waitFor(frame => frame.includes('100 own messages loaded') && !frame.includes('More may be available') && !frame.includes('Loading history'));
+    assert.equal(status(), 'Mine · 100 own messages loaded · 0 selected');
+    assert.match(footer(), /A Delete all/);
+    assert.ok(!footer().includes('n Next') && !footer().includes('L Load all'));
+    assert.ok(ui.frames.every(frame => !frame.includes('100+') && !frame.includes('Loaded 100')));
+    assert.equal(mock.calls.deletes.length, 0);
+  } finally {await ui.close();}
+});
 
 test('help opens and closes with ? or Esc, isolates input, and makes no Telegram requests', async () => {
   const mock = fixture();
@@ -93,7 +155,7 @@ test('help opens and closes with ? or Esc, isolates input, and makes no Telegram
     assert.deepEqual(mock.calls, before);
     await ui.press('?');
     await ui.waitFor(frame => frame.includes('TG MANAGER'));
-    assert.match(ui.frame(), /Mine · 2 loaded · 0 selected/);
+    assert.match(ui.frame(), /Mine · 2 own messages loaded · 0 selected/);
     await ui.press('?');
     await ui.press('\x1b');
     await ui.waitFor(frame => frame.includes('TG MANAGER'));
@@ -174,7 +236,7 @@ test('load-all publishes progress, prevents duplicate requests, and Esc keeps th
     await ui.waitFor(frame => frame.includes('Stopping'));
     gate.resolve(mock.records.slice(100, 200));
     await ui.waitFor(frame => frame.includes('Stopped loading at 200 loaded'));
-    assert.ok(ui.frame().includes('(200+)'));
+    assert.ok(ui.frame().includes('(200)'));
     assert.equal(mock.calls.pages, 2);
     assert.equal(mock.calls.deletes.length, 0);
   } finally {gate.resolve([]); await ui.close();}

@@ -20,6 +20,7 @@ export function useNotice() {
 }
 
 export function progressText(progress: Progress): string {
+  if (progress.label === 'Loading' || progress.label === 'Selecting') return progress.cancelling ? `Stopping ${progress.label.toLowerCase()}` : `${progress.label} history`;
   const count = progress.completed?.toLocaleString('en-US');
   return `${progress.cancelling ? 'Stopping' : progress.label}${count === undefined ? '' : ` · ${count}${
     progress.total === undefined ? (progress.label === 'Scanning' ? ' found' : ' loaded') : ` / ${progress.total.toLocaleString('en-US')} requested`}`}${
@@ -30,7 +31,8 @@ export function StatusBar({width, view, loaded, hasMore, selected, progress, not
   width: number; view: MessageView; loaded: number; hasMore: boolean; selected: number;
   progress: Progress | null; notice: Notice | null;
 }) {
-  const summary = `${view === 'mine' ? 'Mine' : 'All'} · ${loaded.toLocaleString('en-US')}${hasMore ? '+' : ''} loaded · ${selected.toLocaleString('en-US')} selected`;
+  const count = `${loaded.toLocaleString('en-US')} ${view === 'mine' ? 'own ' : ''}message${loaded === 1 ? '' : 's'} loaded`;
+  const summary = `${view === 'mine' ? 'Mine' : 'All'} · ${count} · ${selected.toLocaleString('en-US')} selected${hasMore ? ' · More may be available' : ''}`;
   const activity = progress ? progressText(progress) : null;
   // Alerts lead the same status row until explicitly dismissed; normal notices
   // use only spare space and expire without replacing the useful counters.

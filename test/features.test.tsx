@@ -163,10 +163,10 @@ test('all-authors view displays incoming messages but selection and deletion inc
   const mock = mockClient();
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     assert.ok(ui.frame().includes('[MINE]'));
     await ui.press('v');
-    await ui.waitFor(frame => frame.includes('Loaded 3 messages from all authors'));
+    await ui.waitFor(frame => frame.includes('All · 3 messages loaded'));
     assert.ok(ui.frame().includes('[-] Other Person:'));
     await ui.press('\t');
     await ui.press('\x1b[B');
@@ -174,7 +174,7 @@ test('all-authors view displays incoming messages but selection and deletion inc
     await ui.waitFor(frame => frame.includes('Only your own messages can be marked'));
     assert.ok(ui.frame().includes('MARKED 0'));
     await ui.press('s');
-    await ui.waitFor(frame => frame.includes('Selected 2 loaded own messages'));
+    await ui.waitFor(frame => frame.includes('2 selected'));
     await ui.press('d');
     await ui.waitFor(frame => frame.includes('DELETE 2 of YOUR messages'));
     assert.equal(mock.deletions.length, 0);
@@ -184,7 +184,7 @@ test('all-authors view displays incoming messages but selection and deletion inc
     await ui.press('d');
     await ui.waitFor(frame => frame.includes('Type DELETE'));
     await confirmDelete(ui);
-    await ui.waitFor(frame => frame.includes('All · 1 loaded') && frame.includes('2 verified absent'));
+    await ui.waitFor(frame => frame.includes('All · 1 message loaded') && frame.includes('2 verified absent'));
     assert.deepEqual(mock.deletions, [[5, 3]]);
     assert.equal(mock.requests.at(-1)!.fromUser, undefined);
   } finally {await ui.close();}
@@ -194,15 +194,15 @@ test('switching message views resets selection and restores the own-message serv
   const mock = mockClient();
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     await ui.press('\t');
     await ui.press(' ');
     await ui.waitFor(frame => frame.includes('MARKED 1'));
     await ui.press('v');
-    await ui.waitFor(frame => frame.includes('Loaded 3 messages from all authors'));
+    await ui.waitFor(frame => frame.includes('All · 3 messages loaded'));
     assert.ok(ui.frame().includes('MARKED 0'));
     await ui.press('v');
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     assert.equal(mock.requests.at(-1)!.fromUser, 'me');
     assert.ok(ui.frame().includes('MARKED 0'));
   } finally {await ui.close();}
@@ -213,17 +213,17 @@ test('pagination and select-entire-history operate on all authors while marking 
   const mock = mockClient(records);
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 3 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 3 own messages loaded'));
     await ui.press('v');
-    await ui.waitFor(frame => frame.includes('Loaded 100 messages from all authors'));
+    await ui.waitFor(frame => frame.includes('All · 100 messages loaded'));
     await ui.press('\t');
     await ui.press('n');
-    await ui.waitFor(frame => frame.includes('Loaded 200 messages; more available'));
+    await ui.waitFor(frame => frame.includes('All · 200 messages loaded'));
     assert.deepEqual(mock.requests.at(-1), {limit: 100, offsetId: 201});
     await ui.press('s');
     await ui.waitFor(frame => frame.includes('SELECT OWN: 200 messages'));
     await ui.press('y');
-    await ui.waitFor(frame => frame.includes('Selected 3 own / 202 loaded'));
+    await ui.waitFor(frame => frame.includes('All · 202 messages loaded · 3 selected'));
     assert.deepEqual(mock.requests.at(-1), {limit: 100, offsetId: 101});
     await ui.press('d');
     await ui.waitFor(frame => frame.includes('DELETE 3 of YOUR messages'));
@@ -237,9 +237,9 @@ test('bulk deletion scan always filters to me even while viewing all authors', a
   const mock = mockClient();
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     await ui.press('v');
-    await ui.waitFor(frame => frame.includes('Loaded 3 messages from all authors'));
+    await ui.waitFor(frame => frame.includes('All · 3 messages loaded'));
     await ui.press('A');
     await ui.waitFor(frame => frame.includes('DELETE 2 of YOUR messages'));
     assert.equal(mock.scans[0]!.fromUser, 'me');
@@ -254,14 +254,14 @@ test('load-all uses the current view and preserves existing own-message marks', 
   const mock = mockClient(records);
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     await ui.press('v');
-    await ui.waitFor(frame => frame.includes('Loaded 100 messages from all authors'));
+    await ui.waitFor(frame => frame.includes('All · 100 messages loaded'));
     await ui.press('\t');
     await ui.press(' ');
     await ui.waitFor(frame => frame.includes('MARKED 1'));
     await ui.press('L');
-    await ui.waitFor(frame => frame.includes('Loaded entire view: 102 messages'));
+    await ui.waitFor(frame => frame.includes('All · 102 messages loaded'));
     assert.deepEqual(mock.requests.at(-1), {limit: 100, offsetId: 201});
     assert.ok(ui.frame().includes('[ALL] (102)'));
     assert.ok(ui.frame().includes('MARKED 1'));
@@ -282,7 +282,7 @@ test('the default list includes groups, supergroups and channels while excluding
   const mock = mockClient(undefined, conversations);
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     const frame = ui.frame();
     assert.ok(frame.includes('GROUPS/CHANNELS (3)'));
     for (const title of ['Study group', 'Public supergroup', 'News channel']) assert.ok(frame.includes(title));
@@ -295,7 +295,7 @@ test('including and hiding private chats preserves the active group and its mess
   const mock = mockClient(undefined, conversations);
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     await ui.press('\t');
     await ui.press(' ');
     await ui.waitFor(frame => frame.includes('MARKED 1'));
@@ -318,15 +318,15 @@ test('hiding the active private chat switches to the first group and clears its 
   const mock = mockClient(undefined, conversations);
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     await ui.press('p');
     await ui.press('\x1b[A');
-    await ui.waitFor(frame => frame.includes('TG MANAGER / Direct conversation') && frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('TG MANAGER / Direct conversation') && frame.includes('Mine · 2 own messages loaded'));
     await ui.press('\t');
     await ui.press(' ');
     await ui.waitFor(frame => frame.includes('MARKED 1'));
     await ui.press('p');
-    await ui.waitFor(frame => frame.includes('TG MANAGER / Study group') && frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('TG MANAGER / Study group') && frame.includes('Mine · 2 own messages loaded'));
     assert.ok(ui.frame().includes('MARKED 0'));
     assert.ok(!ui.frame().includes('[x]'));
     assert.deepEqual(mock.entities, ['group', 'private', 'group']);
@@ -346,7 +346,7 @@ test('accounts containing only private chats show a useful empty state and never
     await ui.press('\x1b[B');
     await ui.press('\x1b[A');
     await ui.press('p');
-    await ui.waitFor(frame => frame.includes('TG MANAGER / Direct conversation') && frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('TG MANAGER / Direct conversation') && frame.includes('Mine · 2 own messages loaded'));
     await ui.press('\t');
     await ui.press(' ');
     await ui.waitFor(frame => frame.includes('MARKED 1'));
@@ -359,7 +359,7 @@ test('accounts containing only private chats show a useful empty state and never
     assert.ok(!ui.frame().includes('Type DELETE'));
     await ui.press('\x1b[B');
     await ui.press('p');
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     assert.ok(ui.frame().includes('MARKED 0'));
     assert.deepEqual(mock.entities, ['private', 'private']);
   } finally {await ui.close();}
@@ -369,13 +369,13 @@ test('clear selection works from either panel without reloading or deleting mess
   const mock = mockClient();
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
     await ui.press('\t');
     await ui.press('s');
     await ui.waitFor(frame => frame.includes('MARKED 2'));
     await ui.press('\t');
     await ui.press('c');
-    await ui.waitFor(frame => frame.includes('Cleared selection (2 messages)'));
+    await ui.waitFor(frame => frame.includes('0 selected'));
     assert.ok(ui.frame().includes('MARKED 0'));
     assert.ok(!ui.frame().includes('[x]'));
     await ui.press('\t');
@@ -384,10 +384,10 @@ test('clear selection works from either panel without reloading or deleting mess
     await ui.press(' ');
     await ui.waitFor(frame => frame.includes('MARKED 1'));
     await ui.press('c');
-    await ui.waitFor(frame => frame.includes('Cleared selection (1 messages)'));
+    await ui.waitFor(frame => frame.includes('0 selected'));
     assert.ok(ui.frame().includes('MARKED 0'));
     await ui.press('c');
-    await ui.waitFor(frame => frame.includes('No messages selected.'));
+    await ui.waitFor(frame => frame.includes('0 selected'));
     assert.equal(mock.requests.length, 1);
     assert.equal(mock.deletions.length, 0);
   } finally {await ui.close();}
@@ -397,7 +397,7 @@ test('c still cancels the select-entire-history prompt without clearing existing
   const mock = mockClient(Array.from({length: 101}, (_, index) => message(200 - index)));
   const ui = testTerminal(<App client={mock.client}/>);
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 100 own messages'));
+    await ui.waitFor(frame => frame.includes('Mine · 100 own messages loaded'));
     await ui.press('\t');
     await ui.press(' ');
     await ui.press('s');
@@ -414,16 +414,19 @@ test('the footer changes with focus, selection and width while remaining on the 
   const ui = testTerminal(<App client={mock.client}/>, {columns: 80, rows: 24});
   const footer = () => ui.frame().trimEnd().split('\n').at(-1)!;
   try {
-    await ui.waitFor(frame => frame.includes('Mine · 2 loaded'));
-    assert.match(footer(), /p Private/);
+    await ui.waitFor(frame => frame.includes('Mine · 2 own messages loaded'));
+    assert.match(footer(), /p (?:Show )?Private/i);
     assert.match(footer(), /\? Help/);
-    assert.ok(!footer().includes('Delete'));
+    assert.match(footer(), /A Delete all/);
+    assert.ok(!footer().includes('c Clear'));
     await ui.press('\t');
-    assert.match(footer(), /Space Select/);
+    assert.match(footer(), /Space (?:Select|Mark)/);
     assert.ok(!footer().includes('Private'));
     assert.ok(!footer().includes('d Delete'));
     await ui.press(' ');
     assert.match(footer(), /d Delete/);
+    assert.match(footer(), /c Clear/);
+    assert.match(footer(), /A Delete all/);
     for (const [columns, rows] of [[60, 12], [25, 6], [80, 3], [100, 32]]) {
       await ui.resize(columns!, rows!);
       assert.match(footer(), /\? Help/);

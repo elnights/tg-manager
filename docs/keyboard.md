@@ -51,9 +51,12 @@ without changing existing marks. Selection never deletes anything.
 | `Esc` | Stop between requests; keep the in-flight page when it completes |
 
 The default Mine view uses Telegram's own-message filter. All mode loads all
-authors but only marks yours. `100+ loaded` means another page may exist, not
-that its exact count is known. Operations block other application commands,
-except help and stopping, to prevent duplicate requests and changes of target.
+authors but only marks yours. Loaded counts are exact, such as
+`100 own messages loaded`. “More may be available” separately indicates that
+the next page has not been checked. A full page alone does not prove that more
+messages exist. Routine loads and selection changes update these persistent
+counters without a temporary duplicate notice. Operations block other application
+commands, except help and stopping, to prevent duplicate requests and changes of target.
 Loading and selecting publish progress at most about eight times per second.
 
 ## Deletion
@@ -91,5 +94,8 @@ Errors and warnings also remain until dismissed; routine information expires.
 
 Width is saved to `~/.config/tg-manager/settings.json` and clamped to 20–70%,
 subject to terminal width. A short terminal shows an enlargement hint while
-retaining the footer; help scrolls independently. Lower-priority footer actions
-disappear when they cannot fit as complete shortcuts.
+retaining the footer; help scrolls independently. The footer first shortens
+labels, then drops lower-priority hints. `A Delete all` is available from either
+panel when a chat is active. With a selection, `c Clear` stays visible in either
+panel and `d Delete` appears in the messages panel. These actions take priority
+over navigation and layout hints as the terminal narrows.

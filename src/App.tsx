@@ -62,7 +62,6 @@ export function App({client}: {client: TelegramClient}) {
           setChats(dialogs.filter(d => d.entity && (d.isUser || d.isGroup || d.isChannel)).map(d => ({
             id: String(d.id), title: d.title || '(untitled)', entity: d.entity!, isPrivate: d.isUser,
           })));
-          notify(`Loaded ${dialogs.length} chats (maximum 500).`);
         }
       } catch (e) {if (!disposed) notify(`Connecting failed: ${String(e)}`, 'error');}
       finally {task?.finish();}
@@ -84,7 +83,6 @@ export function App({client}: {client: TelegramClient}) {
     void fetchPage(active).then(items => {
       if (disposed) return;
       setMessages(items); setHasMore(items.length === PAGE);
-      notify(`Loaded ${items.length} ${view === 'mine' ? 'own messages' : 'messages from all authors'}.`);
     }).catch(e => {if (!disposed) notify(`Loading failed: ${String(e)}`, 'error');})
       .finally(() => {if (!disposed) task?.finish();});
     return () => {disposed = true; task?.finish();};
@@ -100,7 +98,6 @@ export function App({client}: {client: TelegramClient}) {
       const unique = next.filter(item => !seen.has(item.id));
       if (next.length === PAGE && !unique.length) throw new Error('Pagination did not advance; reload to retry.');
       setMessages(prev => [...prev, ...unique]); setHasMore(next.length === PAGE);
-      notify(`Loaded ${messages.length + unique.length} messages${next.length === PAGE ? '; more available' : '; end of history'}.`);
     } catch (e) {notify(`Loading failed: ${String(e)}`, 'error');}
     finally {task.finish();}
   };
@@ -108,7 +105,6 @@ export function App({client}: {client: TelegramClient}) {
   const markLoaded = () => {
     const ids = ownMessageIds(messages);
     setSelected(new Set(ids));
-    notify(`Selected ${ids.length} loaded own messages. Nothing deleted.`);
   };
 
   // Keep the scan in local collections; publish snapshots at most every 120 ms
@@ -138,8 +134,7 @@ export function App({client}: {client: TelegramClient}) {
         if (more && !added) throw new Error('Pagination did not advance; reload to retry.');
         if (task.update(all.length)) publish();
       }
-      notify(task.cancelled ? `Stopped ${selectOwn ? 'selecting' : 'loading'} at ${all.length} loaded. Nothing deleted.` :
-        selectOwn ? `Selected ${own.size} own / ${all.length} loaded. Nothing deleted.` : `Loaded entire view: ${all.length} messages.`, task.cancelled ? 'warning' : 'info');
+      if (task.cancelled) notify(`Stopped ${selectOwn ? 'selecting' : 'loading'} at ${all.length} loaded. Nothing deleted.`, 'warning');
     } catch (e) {notify(`Stopped at ${all.length} loaded: ${String(e)}`, 'error');}
     finally {publish(); task.finish();}
   };
@@ -239,13 +234,11 @@ export function App({client}: {client: TelegramClient}) {
       if (nextChats[nextIndex]?.id !== active?.id) {
         setMessages([]); setSelected(new Set()); setMessageIndex(0); setHasMore(false);
       }
-      notify(nextChats.length ? `Showing ${nextChats.length} ${nextIncludePrivate ? 'chats including private chats' : 'groups/channels'}.` :
-        nextIncludePrivate ? 'No chats found.' : 'No groups or channels found. Press p to show private chats.');
+      if (!nextChats.length) notify(nextIncludePrivate ? 'No chats found.' : 'No groups or channels found. Press p to show private chats.');
       return;
     }
     if (input === 'c') {
       setSelected(new Set());
-      notify(selected.size ? `Cleared selection (${selected.size} messages).` : 'No messages selected.');
       return;
     }
     if (input === 'v') {
@@ -337,7 +330,7 @@ export function App({client}: {client: TelegramClient}) {
         {!chats.length && listHeight > 0 && <Row width={leftWidth} color="white">{includePrivate ? 'No chats' : 'No groups/channels'}</Row>}
       </>}
       messages={<>
-        {header(`MESSAGES [${view.toUpperCase()}] (${messages.length}${hasMore ? '+' : ''}) MARKED ${selected.size} — ${active?.title ?? 'No chat'}`, 'messages', rightWidth)}
+        {header(`MESSAGES [${view.toUpperCase()}] (${messages.length}) MARKED ${selected.size} — ${active?.title ?? 'No chat'}`, 'messages', rightWidth)}
         {visibleMessages.map((message, i) => {
           const current = messageStart + i === messageIndex;
           const focused = focus === 'messages';
