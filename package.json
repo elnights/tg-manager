@@ -28,6 +28,7 @@
     "build": "node scripts/build.mjs",
     "test": "FORCE_COLOR=1 node --import tsx --test test/*.test.tsx",
     "test:package": "node --test test/package.test.mjs",
+    "test:secrets": "node scripts/scan-secrets.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "npm run typecheck && npm test && npm run test:package",
     "typecheck": "tsc --noEmit"

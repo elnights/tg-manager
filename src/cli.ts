@@ -31,7 +31,8 @@ Groups and channels are shown by default. Press p to include private chats.
 Main keys: Tab switch panel; arrows or j/k move; Space mark; s select own;
 c clear selection; n next page; L load all; v view mine/all;
 d delete marked; A delete all own messages; [ / ] adjust chat width;
-0 reset chat width to 32%; r reload; q quit; Ctrl+C quit anytime.
+0 reset chat width to 32%; r reload; ? keyboard help; q quit; Ctrl+C quit anytime.
+Esc stops background work after the in-flight request; completed batches stay deleted.
 Deletion requires typing DELETE and pressing Enter; Esc cancels.`);
     return;
   }

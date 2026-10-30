@@ -40,3 +40,11 @@ export async function fetchMessagePage(client: TelegramClient, entity: any, self
 export function ownMessageIds(messages: Message[], selected?: ReadonlySet<number>): number[] {
   return messages.filter(message => message.own && (!selected || selected.has(message.id))).map(message => message.id);
 }
+
+// A successful deletion RPC only acknowledges a request. Check the exact IDs
+// without a view/author filter before reporting any message as verified absent.
+export async function absentMessageIds(client: TelegramClient, entity: any, ids: number[]): Promise<number[]> {
+  const remaining = await client.getMessages(entity, {ids});
+  const present = new Set(remaining.filter(message => message && String(message.className) !== 'MessageEmpty').map(message => message.id));
+  return ids.filter(id => !present.has(id));
+}

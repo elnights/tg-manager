@@ -18,7 +18,8 @@ function message(id: number, own = true) {
 function mockClient(records = [message(5), message(4, false), message(3)], dialogs = [
   {id: 'chat', title: 'Test chat', entity: 'test-chat', isUser: false, isGroup: true, isChannel: false},
 ]) {
-  const requests: {limit?: number; offsetId?: number; fromUser?: string}[] = [];
+  const requests: {limit?: number; offsetId?: number; fromUser?: string; ids?: number[]}[] = [];
+  const verifications: number[][] = [];
   const scans: {fromUser?: string}[] = [];
   const deletions: number[][] = [];
   const entities: unknown[] = [];
@@ -27,6 +28,10 @@ function mockClient(records = [message(5), message(4, false), message(3)], dialo
     async getMe() {return {id: {toString: () => '42'}};},
     async getDialogs() {return dialogs;},
     async getMessages(_entity: unknown, options: typeof requests[number]) {
+      if (options.ids) {
+        verifications.push(options.ids);
+        return records.filter(record => options.ids!.includes(record.id) && !deleted.has(record.id));
+      }
       requests.push(options);
       entities.push(_entity);
       return records.filter(record => !deleted.has(record.id) &&
@@ -43,7 +48,7 @@ function mockClient(records = [message(5), message(4, false), message(3)], dialo
       ids.forEach(id => deleted.add(id));
     },
   };
-  return {client: fake as unknown as TelegramClient, requests, scans, deletions, entities};
+  return {client: fake as unknown as TelegramClient, requests, scans, deletions, entities, verifications};
 }
 
 test('API credentials validate without including submitted secrets in errors', () => {
@@ -179,7 +184,7 @@ test('all-authors view displays incoming messages but selection and deletion inc
     await ui.press('d');
     await ui.waitFor(frame => frame.includes('Type DELETE'));
     await confirmDelete(ui);
-    await ui.waitFor(frame => frame.includes('Loaded 1 messages from all authors'));
+    await ui.waitFor(frame => frame.includes('All · 1 loaded') && frame.includes('2 verified absent'));
     assert.deepEqual(mock.deletions, [[5, 3]]);
     assert.equal(mock.requests.at(-1)!.fromUser, undefined);
   } finally {await ui.close();}
@@ -218,7 +223,7 @@ test('pagination and select-entire-history operate on all authors while marking 
     await ui.press('s');
     await ui.waitFor(frame => frame.includes('SELECT OWN: 200 messages'));
     await ui.press('y');
-    await ui.waitFor(frame => frame.includes('3 marked / 202 loaded'));
+    await ui.waitFor(frame => frame.includes('Selected 3 own / 202 loaded'));
     assert.deepEqual(mock.requests.at(-1), {limit: 100, offsetId: 101});
     await ui.press('d');
     await ui.waitFor(frame => frame.includes('DELETE 3 of YOUR messages'));
@@ -256,7 +261,7 @@ test('load-all uses the current view and preserves existing own-message marks', 
     await ui.press(' ');
     await ui.waitFor(frame => frame.includes('MARKED 1'));
     await ui.press('L');
-    await ui.waitFor(frame => frame.includes('Loading all: 102 messages — complete'));
+    await ui.waitFor(frame => frame.includes('Loaded entire view: 102 messages'));
     assert.deepEqual(mock.requests.at(-1), {limit: 100, offsetId: 201});
     assert.ok(ui.frame().includes('[ALL] (102)'));
     assert.ok(ui.frame().includes('MARKED 1'));
@@ -404,29 +409,27 @@ test('c still cancels the select-entire-history prompt without clearing existing
   } finally {await ui.close();}
 });
 
-test('the legend names the width reset and new controls and fits after resizing the terminal', async () => {
+test('the footer changes with focus, selection and width while remaining on the last row', async () => {
   const mock = mockClient();
   const ui = testTerminal(<App client={mock.client}/>, {columns: 80, rows: 24});
+  const footer = () => ui.frame().trimEnd().split('\n').at(-1)!;
   try {
-    await ui.waitFor(frame => frame.includes('Loaded 2 own messages'));
-    const frame = ui.frame();
-    assert.ok(frame.includes('p show private chats'));
-    assert.ok(frame.includes('c clear selection'));
-    assert.ok(frame.includes('0 reset chat width (32%)'));
-    assert.ok(frame.trimEnd().split('\n').length <= 23, 'the legend must fit without scrolling the terminal');
+    await ui.waitFor(frame => frame.includes('Mine · 2 loaded'));
+    assert.match(footer(), /p Private/);
+    assert.match(footer(), /\? Help/);
+    assert.ok(!footer().includes('Delete'));
     await ui.press('\t');
+    assert.match(footer(), /Space Select/);
+    assert.ok(!footer().includes('Private'));
+    assert.ok(!footer().includes('d Delete'));
     await ui.press(' ');
-    await ui.resize(60, 12);
-    await ui.waitFor(frame => frame.includes('0 reset chat width (32%)'));
-    assert.ok(ui.frame().trimEnd().split('\n').length <= 11);
-    await ui.resize(80, 6);
-    await ui.waitFor(frame => frame.includes('Enlarge the terminal'));
-    await ui.resize(100, 32);
-    await ui.waitFor(frame => frame.includes('MARKED 1'));
-    assert.ok(ui.frame().includes('0 reset chat width (32%)'));
-    assert.ok(ui.frame().trimEnd().split('\n').length <= 31);
-    assert.equal(mock.requests.length, 1, 'resizing must preserve the loaded messages and marks');
-    await ui.press('p');
-    await ui.waitFor(frame => frame.includes('p hide private chats'));
+    assert.match(footer(), /d Delete/);
+    for (const [columns, rows] of [[60, 12], [25, 6], [80, 3], [100, 32]]) {
+      await ui.resize(columns!, rows!);
+      assert.match(footer(), /\? Help/);
+      assert.ok(ui.frame().trimEnd().split('\n').length <= rows! - 1);
+    }
+    assert.equal(mock.requests.length, 1, 'resizing preserves loaded messages and marks');
+    assert.ok(ui.frame().includes('1 selected'));
   } finally {await ui.close();}
 });

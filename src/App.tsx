@@ -1,15 +1,19 @@
-import React, {useCallback, useEffect, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useState} from 'react';
 import {Box, useApp, useInput} from 'ink';
 import {adjustChatPercent, DEFAULT_CHAT_PERCENT, panelWidths, Panels, Row, useTerminalSize} from './ui.js';
 import {mkdirSync, readFileSync, writeFileSync} from 'node:fs';
 import {dirname, join} from 'node:path';
 import {homedir} from 'node:os';
 import type {TelegramClient} from 'teleproto';
-import {fetchMessagePage, ownMessageIds, PAGE, type Message, type MessageView} from './messages.js';
+import {absentMessageIds, fetchMessagePage, ownMessageIds, PAGE, type Message, type MessageView} from './messages.js';
+import {Footer} from './Footer.js';
+import {Help} from './Help.js';
+import {StatusBar, useNotice} from './StatusBar.js';
+import {useOperation} from './useOperation.js';
 
 type Chat = {id: string; title: string; entity: any; isPrivate: boolean};
 type Focus = 'chats' | 'messages';
-type Confirm = {ids: number[]; chat: Chat; kind: 'selected' | 'all'};
+type Confirm = {ids: number[]; chat: Chat};
 const CONFIG_PATH = join(homedir(), '.config', 'tg-manager', 'settings.json');
 function readChatPercent(): number {
   try {
@@ -37,9 +41,9 @@ export function App({client}: {client: TelegramClient}) {
   const [selected, setSelected] = useState<Set<number>>(new Set());
   const [focus, setFocus] = useState<Focus>('chats');
   const [hasMore, setHasMore] = useState(false);
-  const [busy, setBusy] = useState(false);
-  const busyRef = useRef(false);
-  const [status, setStatus] = useState('Connecting...');
+  const {progress, current: busyRef, begin, cancel} = useOperation();
+  const {notice, notify, dismissNotice} = useNotice();
+  const [helpOpen, setHelpOpen] = useState(false);
   const [confirm, setConfirm] = useState<Confirm | null>(null);
   const [selectAllPrompt, setSelectAllPrompt] = useState(false);
   const [confirmationText, setConfirmationText] = useState('');
@@ -48,155 +52,175 @@ export function App({client}: {client: TelegramClient}) {
   const active = chats[chatIndex];
 
   useEffect(() => {
-    let cancelled = false;
+    let disposed = false;
+    const task = begin('Connecting');
     void (async () => {
       try {
         const [dialogs, me] = await Promise.all([client.getDialogs({limit: 500}), client.getMe()]);
-        if (!cancelled) {
+        if (!disposed) {
           setSelfId(me.id.toString());
           setChats(dialogs.filter(d => d.entity && (d.isUser || d.isGroup || d.isChannel)).map(d => ({
             id: String(d.id), title: d.title || '(untitled)', entity: d.entity!, isPrivate: d.isUser,
           })));
-          setStatus(`Loaded ${dialogs.length} chats (maximum 500).`);
+          notify(`Loaded ${dialogs.length} chats (maximum 500).`);
         }
-      } catch (e) {if (!cancelled) setStatus(`ERROR: ${String(e)}`);}
+      } catch (e) {if (!disposed) notify(`Connecting failed: ${String(e)}`, 'error');}
+      finally {task?.finish();}
     })();
-    return () => {cancelled = true;};
+    return () => {disposed = true; task?.finish();};
   }, [client]);
 
   const fetchPage = useCallback((chat: Chat, offsetId = 0): Promise<Message[]> =>
     fetchMessagePage(client, chat.entity, selfId, view, offsetId), [client, selfId, view]);
 
   useEffect(() => {
-    let cancelled = false;
+    let disposed = false;
     setMessages([]); setSelected(new Set()); setMessageIndex(0); setHasMore(false);
     if (!active || !selfId) {
-      busyRef.current = false; setBusy(false);
-      if (selfId) setStatus(includePrivate ? 'No chats found.' : 'No groups or channels found. Press p to show private chats.');
+      if (selfId) notify(includePrivate ? 'No chats found.' : 'No groups or channels found. Press p to show private chats.');
       return;
     }
-    busyRef.current = true; setBusy(true); setStatus(`Loading ${active.title}...`);
+    const task = begin('Loading');
     void fetchPage(active).then(items => {
-      if (cancelled) return;
+      if (disposed) return;
       setMessages(items); setHasMore(items.length === PAGE);
-      setStatus(`Loaded ${items.length} ${view === 'mine' ? 'own messages' : 'messages from all authors'}. L loads all; n loads next page.`);
-    }).catch(e => {if (!cancelled) setStatus(`ERROR loading: ${String(e)}`);})
-      .finally(() => {if (!cancelled) {busyRef.current = false; setBusy(false);}});
-    return () => {cancelled = true;};
+      notify(`Loaded ${items.length} ${view === 'mine' ? 'own messages' : 'messages from all authors'}.`);
+    }).catch(e => {if (!disposed) notify(`Loading failed: ${String(e)}`, 'error');})
+      .finally(() => {if (!disposed) task?.finish();});
+    return () => {disposed = true; task?.finish();};
   }, [active?.id, selfId, refresh, fetchPage]);
 
   const loadMore = async () => {
-    if (!active || busyRef.current || !hasMore || !messages.length) return;
-    busyRef.current = true; setBusy(true);
+    if (!active || !hasMore || !messages.length) return;
+    const task = begin('Loading');
+    if (!task) return;
     try {
       const next = await fetchPage(active, messages[messages.length - 1]!.id);
-      setMessages(prev => [...prev, ...next]); setHasMore(next.length === PAGE);
-      setStatus(`Loaded ${messages.length + next.length} messages${next.length === PAGE ? '; more available' : '; end of history'}.`);
-    } catch (e) {setStatus(`ERROR: ${String(e)}`);}
-    finally {busyRef.current = false; setBusy(false);}
-  };
-
-  const loadAll = async () => {
-    if (!active || busyRef.current || !hasMore) return;
-    busyRef.current = true; setBusy(true);
-    const current = active;
-    let all = [...messages];
-    let more: boolean = hasMore;
-    setStatus(`Loading entire history for ${current.title}...`);
-    try {
-      while (more) {
-        const next = await fetchPage(current, all[all.length - 1]?.id ?? 0);
-        all.push(...next);
-        more = next.length === PAGE;
-        setMessages([...all]); setHasMore(more);
-        setStatus(`Loading all: ${all.length} messages${more ? '...' : ' — complete'}`);
-      }
-    } catch (e) {setStatus(`Paused after ${all.length} messages: ${String(e)}`);}
-    finally {busyRef.current = false; setBusy(false);}
+      const seen = new Set(messages.map(message => message.id));
+      const unique = next.filter(item => !seen.has(item.id));
+      if (next.length === PAGE && !unique.length) throw new Error('Pagination did not advance; reload to retry.');
+      setMessages(prev => [...prev, ...unique]); setHasMore(next.length === PAGE);
+      notify(`Loaded ${messages.length + unique.length} messages${next.length === PAGE ? '; more available' : '; end of history'}.`);
+    } catch (e) {notify(`Loading failed: ${String(e)}`, 'error');}
+    finally {task.finish();}
   };
 
   const markLoaded = () => {
     const ids = ownMessageIds(messages);
     setSelected(new Set(ids));
-    setStatus(`Selected ${ids.length} loaded own messages. Nothing deleted.`);
+    notify(`Selected ${ids.length} loaded own messages. Nothing deleted.`);
   };
 
-  const selectEntireHistory = async () => {
-    if (!active || busyRef.current) return;
+  // Keep the scan in local collections; publish snapshots at most every 120 ms
+  // and always once on completion/cancellation, rather than cloning per page.
+  const loadHistory = async (selectOwn: boolean) => {
+    if (!active) return;
+    const task = begin(selectOwn ? 'Selecting' : 'Loading');
+    if (!task) return;
     setSelectAllPrompt(false);
-    busyRef.current = true; setBusy(true);
-    const chat = active;
-    let all = [...messages];
+    const all = [...messages];
+    const seen = new Set(all.map(message => message.id));
+    const own = new Set(ownMessageIds(all));
     let more = hasMore;
-    setSelected(new Set(ownMessageIds(all)));
+    const publish = () => {
+      setMessages([...all]); setHasMore(more);
+      if (selectOwn) setSelected(new Set(own));
+    };
     try {
-      while (more) {
-        const next = await fetchPage(chat, all[all.length - 1]?.id ?? 0);
-        all = [...all, ...next];
+      while (more && !task.cancelled) {
+        const next = await fetchPage(active, all[all.length - 1]?.id ?? 0);
+        let added = 0;
+        for (const item of next) if (!seen.has(item.id)) {
+          all.push(item); seen.add(item.id); added++;
+          if (item.own) own.add(item.id);
+        }
         more = next.length === PAGE;
-        setMessages(all);
-        setSelected(new Set(ownMessageIds(all)));
-        setHasMore(more);
-        setStatus(`Selecting own messages: ${ownMessageIds(all).length} marked / ${all.length} loaded${more ? '...' : ' — done'}`);
+        if (more && !added) throw new Error('Pagination did not advance; reload to retry.');
+        if (task.update(all.length)) publish();
       }
-    } catch (e) {
-      setStatus(`Load interrupted at ${all.length}; selected ${ownMessageIds(all).length} own messages: ${String(e)}`);
-    } finally {busyRef.current = false; setBusy(false);}
+      notify(task.cancelled ? `Stopped ${selectOwn ? 'selecting' : 'loading'} at ${all.length} loaded. Nothing deleted.` :
+        selectOwn ? `Selected ${own.size} own / ${all.length} loaded. Nothing deleted.` : `Loaded entire view: ${all.length} messages.`, task.cancelled ? 'warning' : 'info');
+    } catch (e) {notify(`Stopped at ${all.length} loaded: ${String(e)}`, 'error');}
+    finally {publish(); task.finish();}
   };
 
-  // Mass delete scans server-side with fromUser: me, independent of UI pagination.
+  // Mass deletion scans server-side with fromUser: me, independent of UI pagination.
   const scanAll = async () => {
-    if (!active || busyRef.current) return;
-    busyRef.current = true; setBusy(true);
-    const chat = active;
-    const ids: number[] = [];
+    if (!active) return;
+    const task = begin('Scanning');
+    if (!task) return;
+    const ids = new Set<number>();
     try {
-      setStatus('Scanning ALL your messages (no deletions yet)...');
-      for await (const msg of client.iterMessages(chat.entity, {fromUser: 'me', limit: undefined})) {
-        ids.push(msg.id);
-        if (ids.length % 200 === 0) setStatus(`Scanning: ${ids.length} messages found...`);
+      for await (const msg of client.iterMessages(active.entity, {fromUser: 'me', limit: undefined})) {
+        if (task.cancelled) break;
+        ids.add(msg.id); task.update(ids.size);
       }
-      setStatus(`Scan complete: ${ids.length} messages. Nothing deleted.`);
-      if (ids.length) {setConfirm({kind: 'all', ids, chat}); setConfirmationText('');}
-    } catch (e) {setStatus(`Scan failed; nothing deleted: ${String(e)}`);}
-    finally {busyRef.current = false; setBusy(false);}
+      if (task.cancelled) {notify(`Scan stopped at ${ids.size} found. Nothing deleted.`, 'warning'); return;}
+      notify(`Scan complete: ${ids.size} messages. Nothing deleted.`);
+      if (ids.size) {setConfirm({ids: [...ids], chat: active}); setConfirmationText('');}
+    } catch (e) {notify(`Scan failed; nothing deleted: ${String(e)}`, 'error');}
+    finally {task.finish();}
   };
 
   const doDelete = async () => {
-    if (!confirm || busyRef.current) return;
+    if (!confirm || confirmationText !== 'DELETE') return;
+    const task = begin('Deleting');
+    if (!task) return;
     const {ids, chat} = confirm;
-    setConfirm(null); setConfirmationText(''); busyRef.current = true; setBusy(true);
+    setConfirm(null); setConfirmationText('');
     let requested = 0;
+    let verified = 0;
+    let failure: unknown;
     try {
-      for (let i = 0; i < ids.length; i += PAGE) {
-        await client.deleteMessages(chat.entity, ids.slice(i, i + PAGE), {revoke: true});
-        requested += Math.min(PAGE, ids.length - i);
-        setStatus(`Requested deletion: ${requested}/${ids.length}...`);
+      for (let i = 0; i < ids.length && !task.cancelled; i += PAGE) {
+        const batch = ids.slice(i, i + PAGE);
+        await client.deleteMessages(chat.entity, batch, {revoke: true});
+        requested += batch.length;
+        task.update(requested, {total: ids.length, verified});
+        // Even after Esc, verify the in-flight batch before stopping.
+        const absent = new Set(await absentMessageIds(client, chat.entity, batch));
+        verified += absent.size;
+        setMessages(previous => previous.filter(message => !absent.has(message.id)));
+        setSelected(previous => new Set([...previous].filter(id => !absent.has(id))));
+        task.update(requested, {total: ids.length, verified});
+        if (absent.size !== batch.length) throw new Error('Some requested messages are still present; reload and verify before retrying.');
       }
-      setStatus(`Requested deletion of ${requested} messages. Reloading...`);
-    } catch (e) {setStatus(`STOPPED after ${requested} requests: ${String(e)}. Reload and verify.`);}
-    finally {busyRef.current = false; setBusy(false); setRefresh(v => v + 1);}
+    } catch (e) {failure = e;}
+    finally {
+      notify(`${task.cancelled ? 'Stopped. ' : ''}${requested} / ${ids.length} requested; ${verified} verified absent.${failure ? ` ${String(failure)} An unsuccessful request may still have taken effect.` : ''}`,
+        failure ? 'error' : task.cancelled ? 'warning' : 'result');
+      task.finish(); setRefresh(value => value + 1);
+    }
   };
 
   useInput((input, key) => {
+    if (helpOpen) return;
+    if (input === '?') {setHelpOpen(true); return;}
     if (selectAllPrompt) {
       if (key.escape || input.toLowerCase() === 'c') {setSelectAllPrompt(false); return;}
       if (input.toLowerCase() === 'n') {setSelectAllPrompt(false); markLoaded(); return;}
-      if (input.toLowerCase() === 'y') {void selectEntireHistory(); return;}
+      if (input.toLowerCase() === 'y') {void loadHistory(true); return;}
       return;
     }
     if (confirm) {
       if (key.escape) {setConfirm(null); setConfirmationText(''); return;}
+      // Never accept a destructive confirmation while its context is hidden by
+      // the small-terminal fallback. Help and cancellation still work.
+      if (size.rows < 10 || size.columns < 25) return;
       if (key.return) {
         if (confirmationText === 'DELETE') void doDelete();
-        else setStatus('Enter exactly DELETE to confirm.');
+        else notify('Enter exactly DELETE to confirm.', 'warning');
         return;
       }
       if (key.backspace || key.delete) setConfirmationText(t => t.slice(0, -1));
       else if (/^[a-zA-Z]$/.test(input)) setConfirmationText(t => (t + input).slice(0, 12));
       return;
     }
-    if (busyRef.current) return;
+    if (busyRef.current) {
+      if (key.escape) {dismissNotice(); cancel();}
+      return;
+    }
+    if (key.escape) {dismissNotice(); return;}
     if (input === '[' || input === ']' || input === '0') {
       setChatPercent(previous => {
         const next = adjustChatPercent(previous, input);
@@ -215,13 +239,13 @@ export function App({client}: {client: TelegramClient}) {
       if (nextChats[nextIndex]?.id !== active?.id) {
         setMessages([]); setSelected(new Set()); setMessageIndex(0); setHasMore(false);
       }
-      setStatus(nextChats.length ? `Showing ${nextChats.length} ${nextIncludePrivate ? 'chats including private chats' : 'groups/channels'}.` :
+      notify(nextChats.length ? `Showing ${nextChats.length} ${nextIncludePrivate ? 'chats including private chats' : 'groups/channels'}.` :
         nextIncludePrivate ? 'No chats found.' : 'No groups or channels found. Press p to show private chats.');
       return;
     }
     if (input === 'c') {
       setSelected(new Set());
-      setStatus(selected.size ? `Cleared selection (${selected.size} messages).` : 'No messages selected.');
+      notify(selected.size ? `Cleared selection (${selected.size} messages).` : 'No messages selected.');
       return;
     }
     if (input === 'v') {
@@ -249,30 +273,23 @@ export function App({client}: {client: TelegramClient}) {
     }
     if (focus !== 'messages') return;
     if (input === ' ' && messages[messageIndex]) {
-      if (!messages[messageIndex]!.own) {setStatus('Only your own messages can be marked for deletion.'); return;}
+      if (!messages[messageIndex]!.own) {notify('Only your own messages can be marked for deletion.'); return;}
       const id = messages[messageIndex]!.id;
       setSelected(prev => {const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next;});
     }
     if (input === 'n') void loadMore();
-    if (input === 'L') void loadAll();
+    if (input === 'L') void loadHistory(false);
     if (input === 'd' && selected.size && active) {
       const ids = ownMessageIds(messages, selected);
-      if (ids.length) {setConfirm({kind: 'selected', ids, chat: active}); setConfirmationText('');}
+      if (ids.length) {setConfirm({ids, chat: active}); setConfirmationText('');}
     }
   });
 
   const widths = panelWidths(size.columns, chatPercent);
   const {width: lineWidth, leftWidth, rightWidth} = widths;
-  const helpLines = [
-    `p ${includePrivate ? 'hide' : 'show'} private chats | v mine/all | c clear selection | r reload | q quit`,
-    `[ ] chat width | 0 reset chat width (${DEFAULT_CHAT_PERCENT}%) | Tab panels | Up/Down move`,
-    'Space mark | s select own | n next | L all | d delete | A delete all own',
-  ];
-  const baseHeight = helpLines.length + 3; // title, panel heading, status, help rows
-  // Leave Ink's trailing newline a physical row; the remaining layout fits even
-  // when a terminal is shorter than the headers, footer and confirmation dialog.
   const height = Math.max(1, size.rows - 1);
   const confirmationHeight = confirm || selectAllPrompt ? 5 : 0;
+  const baseHeight = 4; // title, panel heading, status, footer
   const listHeight = Math.max(0, height - baseHeight - confirmationHeight);
   const chatStart = Math.max(0, chatIndex - listHeight + 1);
   const messageStart = Math.max(0, messageIndex - listHeight + 1);
@@ -284,8 +301,23 @@ export function App({client}: {client: TelegramClient}) {
       {`${focus === panel ? '[ACTIVE]' : '[      ]'} ${title}`}
     </Row>;
 
-  if (height < baseHeight + confirmationHeight) {
-    return <Row width={lineWidth} color="yellowBright">Enlarge the terminal to show the interface.</Row>;
+  const footer = <Footer width={lineWidth} focus={focus} busy={Boolean(progress)} cancelling={Boolean(progress?.cancelling)}
+    confirm={Boolean(confirm)} canConfirm={confirmationText === 'DELETE' && height >= baseHeight + confirmationHeight && lineWidth >= 24} selectPrompt={selectAllPrompt}
+    hasChat={Boolean(active)} canNavigate={focus === 'chats' ? chats.length > 1 : messages.length > 1}
+    canSelect={Boolean(messages[messageIndex]?.own)} hasOwn={messages.some(message => message.own)}
+    selected={selected.size} hasMore={hasMore} includePrivate={includePrivate}/>;
+  const statusBar = <StatusBar width={lineWidth} view={view} loaded={messages.length} hasMore={hasMore}
+    selected={selected.size} progress={progress} notice={notice}/>;
+
+  if (helpOpen) return <Help width={lineWidth} height={height} onClose={() => setHelpOpen(false)}/>;
+  if (height < baseHeight + confirmationHeight || lineWidth < 24) {
+    return <Box width={lineWidth} height={height} flexDirection="column" overflow="hidden">
+      <Box height={Math.max(0, height - 2)} flexShrink={0} flexDirection="column" overflow="hidden">
+        <Row width={lineWidth} color="yellowBright">Enlarge the terminal to show the interface.</Row>
+      </Box>
+      {height >= 2 && statusBar}
+      {footer}
+    </Box>;
   }
 
   return <Box flexDirection="column" width={lineWidth} height={height} overflow="hidden">
@@ -302,7 +334,7 @@ export function App({client}: {client: TelegramClient}) {
             {`${current ? '>' : ' '} ${chat.title}`}
           </Row>;
         })}
-        {!chats.length && listHeight > 0 && <Row width={leftWidth} color="gray">{includePrivate ? 'No chats' : 'No groups/channels'}</Row>}
+        {!chats.length && listHeight > 0 && <Row width={leftWidth} color="white">{includePrivate ? 'No chats' : 'No groups/channels'}</Row>}
       </>}
       messages={<>
         {header(`MESSAGES [${view.toUpperCase()}] (${messages.length}${hasMore ? '+' : ''}) MARKED ${selected.size} — ${active?.title ?? 'No chat'}`, 'messages', rightWidth)}
@@ -319,19 +351,17 @@ export function App({client}: {client: TelegramClient}) {
         })}
         {!messages.length && listHeight > 0 && <Row width={rightWidth} color="white">No messages</Row>}
       </>}/>
-    {helpLines.map(line => <Row key={line} width={lineWidth} color="white">{line}</Row>)}
-    <Row width={lineWidth} color={status.startsWith('ERROR') || status.startsWith('STOPPED') ? 'redBright' : 'yellowBright'}>
-      {`${busy ? '[WORKING] ' : ''}${status}`}
-    </Row>
     {selectAllPrompt && <Box height={confirmationHeight} flexShrink={0} flexDirection="column" borderColor="cyanBright" borderStyle="single" overflow="hidden">
       <Row width={Math.max(0, lineWidth - 2)} bold color="cyanBright">{`SELECT OWN: ${messages.length} messages are loaded.`}</Row>
       <Row width={Math.max(0, lineWidth - 2)} color="white">Load the rest of this view and select only your own messages?</Row>
-      <Row width={Math.max(0, lineWidth - 2)} color="yellowBright">Y = load and select own | N = select loaded own | Esc = cancel</Row>
+      <Row width={Math.max(0, lineWidth - 2)} color="yellowBright">Y: load and select own · N: loaded own · Esc: cancel</Row>
     </Box>}
     {confirm && <Box height={confirmationHeight} flexShrink={0} flexDirection="column" borderColor="redBright" borderStyle="double" overflow="hidden">
       <Row width={Math.max(0, lineWidth - 2)} bold color="redBright">{`DELETE ${confirm.ids.length} of YOUR messages in ${confirm.chat.title}?`}</Row>
       <Row width={Math.max(0, lineWidth - 2)} color="white">Deletion can affect other participants and cannot be undone.</Row>
       <Row width={Math.max(0, lineWidth - 2)} color="yellowBright">{`Type DELETE and Enter (Esc to cancel): ${confirmationText}_`}</Row>
     </Box>}
+    {statusBar}
+    {footer}
   </Box>;
 }

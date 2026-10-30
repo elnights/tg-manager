@@ -9,6 +9,7 @@ Before submitting a change, run:
 npm run typecheck
 npm test
 npm run test:package
+npm run build
 ```
 
 The automated tests use simulated terminal streams and xterm buffers. They do
@@ -26,9 +27,11 @@ resizing. The demo uses synthetic titles and does not connect to Telegram.
 See [the rendering investigation](docs/unicode-rendering.md) for the width
 mismatch and regression coverage.
 
-Keep changes to deletion or authentication separate from rendering changes.
-Describe behavior changes and the checks you ran in the pull request.
+Use synthetic Telegram clients and temporary session fixtures for changes to
+deletion, authentication or storage. Never run destructive tests against a real
+account. Describe behavior changes and the checks you ran in the pull request.
 For a terminal bug report, include your OS, Node.js version, terminal/version
 and a synthetic reproduction. Exclude real chat data, credentials and sessions.
 
 See [Publishing](docs/publishing.md) for release preparation.
+Run [the local secret review](docs/security.md) before publishing changes.

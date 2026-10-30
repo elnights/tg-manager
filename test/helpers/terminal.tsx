@@ -33,6 +33,9 @@ export function testTerminal(node: ReactNode, options: {columns?: number; rows?:
     frames, frame, instance,
     async press(value: string) {
       stdin.write(value);
+      // Ink waits briefly to distinguish standalone Esc from a split terminal
+      // escape sequence. Let it emit that key before sending the next input.
+      if (value === '\x1b') await setTimeout(30);
       await new Promise(resolve => setImmediate(resolve));
       await instance.waitUntilRenderFlush();
     },

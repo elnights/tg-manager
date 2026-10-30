@@ -19,6 +19,7 @@ into `dist/`; consumers do not need TypeScript, tsx or the test packages.
    npm run typecheck
    npm test
    npm run test:package
+   npm run build
    ```
 
 4. In an interactive terminal, run `npm run repro:emoji`. Check navigation,
@@ -52,8 +53,9 @@ npm install --prefix /tmp/tg-manager-preview ./tg-manager-tui-0.4.0.tgz
 Use `--demo` for a release preview without Telegram credentials or sessions.
 The normal CLI requires an interactive terminal. Credentials can be entered in
 the UI, exported in the environment or supplied using `--config PATH`.
-It retains the existing working-directory
-session location documented in the README.
+Sessions use the per-user data directory described in [Storage](storage.md).
+Legacy working-directory sessions migrate only when no destination exists; the
+original is kept. Never include sessions, credentials or exports in release artifacts.
 
 ## Publish after review
 
