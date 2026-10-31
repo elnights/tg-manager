@@ -29,13 +29,12 @@ test('the npm tarball installs a working CLI with production dependencies only',
       assert.ok(
         name === 'package.json' ||
           name === 'README.md' ||
-          name === 'CONTRIBUTING.md' ||
           name === 'LICENSE' ||
           name === 'LICENSE.md' ||
           name === 'SECURITY.md' ||
           name === 'CHANGELOG.md' ||
           /^dist\/[\w-]+\.js$/.test(name) ||
-          /^docs\/[\w-]+\.md$/.test(name),
+          ['docs/keyboard.md', 'docs/storage.md', 'docs/usage.md'].includes(name),
         `unexpected package entry: ${name}`,
       );
     }

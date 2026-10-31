@@ -29,20 +29,13 @@ Releases require Node.js 24+ and retain the WTFPL license.
    Telegram account for release testing.
 4. Pack and inspect the tarball, then install it with production dependencies
    only. `test:package` automates this check. Source, fixtures and contributor
-   tooling must stay out of the package.
+   tooling must stay out of the package. Only usage, keyboard and storage guides
+   are included from `docs/`; publishing, contributor, security-scanning and
+   rendering-investigation guides stay in the repository.
 5. Publish the reviewed artifact only after approval. Version `X.Y.Z` corresponds
    to npm `tg-manager-tui@X.Y.Z`, Git tag `vX.Y.Z`, the GitHub release and
    `tg-manager-tui-X.Y.Z.tgz`. Attach that tarball and its SHA-256 to the release;
    use the changelog for release notes. Never reuse versions or move release tags.
-
-## First publication
-
-Verify ownership or availability of `tg-manager-tui` before publishing.
-For a new name, bootstrap it with an authorized npm account and 2FA using
-[npm's unscoped-package instructions](https://docs.npmjs.com/creating-and-publishing-unscoped-public-packages/).
-Trusted publishers are configured in an existing package's settings, so plan for
-this manual first publication before setting up OIDC. A local publish does not
-establish CI provenance. Keep npm credentials out of the repository.
 
 ## Trusted publishing setup
 

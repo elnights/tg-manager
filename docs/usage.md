@@ -7,7 +7,7 @@ See the [keyboard reference](keyboard.md) for every shortcut and prompt.
 ## Installation options
 
 Requires Node.js 24+, macOS or Linux, and an interactive terminal.
-After the first npm release is published, you can install the CLI globally:
+Install the CLI globally:
 
 ```sh
 npm install --global tg-manager-tui
@@ -16,8 +16,16 @@ tg-manager
 
 Use `tg-manager --demo` for an offline preview with synthetic data.
 `--help` lists CLI options; `--version` prints the installed version.
-For source installs and synthetic development previews, see
-[Contributing](../CONTRIBUTING.md).
+Alternatively, run from source:
+
+```sh
+git clone https://github.com/elnights/tg-manager.git
+cd tg-manager
+npm ci
+npm start
+```
+
+For synthetic development previews, see [Contributing](https://github.com/elnights/tg-manager/blob/HEAD/CONTRIBUTING.md).
 
 ## Credentials and login
 
@@ -166,7 +174,7 @@ Short terminals show one right pane at a time; Tab changes panes and resizing
 restores the split without losing marks. Channels without linked discussions
 use the full message area for posts.
 
-![Prague After Hours posts and linked comments in TG Manager (fictional demo data)](../assets/synthetic-channel.svg)
+![Prague After Hours posts and linked comments in TG Manager (fictional demo data)](https://raw.githubusercontent.com/elnights/tg-manager/HEAD/assets/synthetic-channel.svg)
 
 ## Deletion safety
 

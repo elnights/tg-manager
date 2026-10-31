@@ -6,17 +6,15 @@ It works with messages Telegram still lets your account access and identifies as
 
 A terminal app for browsing your Telegram history and cleaning up your own messages.
 
-![TG Manager browsing everyday chats and channels, with hiking messages selected for deletion (fictional demo data)](assets/synthetic-terminal.svg)
+![TG Manager browsing everyday chats and channels, with hiking messages selected for deletion (fictional demo data)](https://raw.githubusercontent.com/elnights/tg-manager/HEAD/assets/synthetic-terminal.svg)
 
 ## Get started
 
 You need **Node.js 24+**, macOS or Linux, and an interactive terminal.
 
 ```sh
-git clone https://github.com/elnights/tg-manager.git
-cd tg-manager
-npm ci
-npm start
+npm install --global tg-manager-tui
+tg-manager
 ```
 
 1. Get your **API ID and hash** from [my.telegram.org](https://my.telegram.org/)
@@ -32,7 +30,7 @@ Saved API credentials are unencrypted and private to your OS user. See
 You can also use `tg-manager --config /path/to/credentials` or export `TG_API_ID`
 and `TG_API_HASH` instead of saving them through the prompt.
 
-Want to try it offline first? Run `npm run repro:emoji` for a synthetic demo.
+Want to try it offline first? Run `tg-manager --demo` for a synthetic demo.
 See the [usage guide](docs/usage.md) for configuration and other installation options.
 
 ## Find and delete your messages
@@ -66,7 +64,7 @@ prompt or stops further requests, but cannot undo a deletion already sent.
 - [Usage guide](docs/usage.md) — browsing, comments, media and deletion details
 - [Keyboard reference](docs/keyboard.md) — all shortcuts
 - [Storage and limits](docs/storage.md) — saved sessions, migration and Telegram limitations
-- [Contributing](CONTRIBUTING.md) — development, validation and architecture
+- [Contributing](https://github.com/elnights/tg-manager/blob/HEAD/CONTRIBUTING.md) — development, validation and architecture
 - [Security policy](SECURITY.md) — private vulnerability reporting
 
 ## License

@@ -15,4 +15,4 @@ Include the affected version, impact and a minimal synthetic reproduction. Do no
 open a public issue containing vulnerability details, credentials, sessions or
 account data. Omit secrets and private account content from the report as well.
 
-For scanner scope, exclusions and local review, see [docs/security.md](docs/security.md).
+For scanner scope, exclusions and local review, see [repository security checks](https://github.com/elnights/tg-manager/blob/HEAD/docs/security.md).
