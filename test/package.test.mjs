@@ -103,6 +103,11 @@ test('the npm tarball installs a working CLI with production dependencies only',
           '--eval',
           `
       import {PassThrough} from 'node:stream';
+      import os from 'node:os';
+      import {syncBuiltinESMExports} from 'node:module';
+      os.homedir = () => ${JSON.stringify(path.join(temporary, 'synthetic-user'))};
+      syncBuiltinESMExports();
+      process.env.XDG_DATA_HOME = ${JSON.stringify(path.join(temporary, 'synthetic-data'))};
       process.env.CI = 'false';
       process.env.CONTINUOUS_INTEGRATION = 'false';
       delete process.env.TG_API_ID;

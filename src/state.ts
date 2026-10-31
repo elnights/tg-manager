@@ -15,7 +15,7 @@ export type ViewState = {
   history: History;
   messageIndex: number;
   selected: Set<number>;
-  messageStatus: 'loading' | 'ready' | 'error';
+  messageStatus: 'loading' | 'ready' | 'error' | 'stopped';
 };
 export const initialView: ViewState = {
   chats: [],
@@ -61,6 +61,7 @@ export type ViewAction =
   | {type: 'view'}
   | {type: 'reload'}
   | {type: 'revalidate'}
+  | {type: 'restore'; chatId: string; view: MessageView; history: History; index: number}
   | {type: 'locatedPost'; chatId: string; view: MessageView; postId: number; history: History}
   | {type: 'active'; id: string | undefined}
   | {
@@ -71,7 +72,7 @@ export type ViewAction =
       selected?: Set<number>;
       hasOwn?: boolean;
     }
-  | {type: 'failed'; chatId: string; view: MessageView}
+  | {type: 'failed' | 'stopped'; chatId: string; view: MessageView}
   | {type: 'index'; index: number}
   | {type: 'selection'; ids: Set<number>}
   | {type: 'absent'; chatId: string; ids: ReadonlySet<number>};
@@ -149,8 +150,9 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
       };
     }
     case 'failed':
+    case 'stopped':
       return action.chatId === state.activeId && action.view === state.view
-        ? {...state, messageStatus: 'error'}
+        ? {...state, messageStatus: action.type === 'stopped' ? 'stopped' : 'error'}
         : state;
     case 'history': {
       if (action.chatId !== state.activeId || action.view !== state.view) return state;
@@ -166,6 +168,15 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
         messageStatus: 'ready',
         messageIndex: Math.max(0, Math.min(state.messageIndex, messageRows(action.history.items).length - 1)),
         ...(action.selected ? {selected: action.selected} : {}),
+      };
+    }
+    case 'restore': {
+      if (action.chatId !== state.activeId || action.view !== state.view) return state;
+      return {
+        ...state,
+        history: action.history,
+        messageStatus: 'ready',
+        messageIndex: Math.max(0, Math.min(action.index, messageRows(action.history.items).length - 1)),
       };
     }
     case 'index':

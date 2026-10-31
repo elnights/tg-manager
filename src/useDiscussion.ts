@@ -1,4 +1,4 @@
-import {useCallback, useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {discussionChat, type Chat, type TelegramApi} from './telegram.js';
 import {
   discussionThread,
@@ -6,16 +6,19 @@ import {
   type DiscussionTarget,
   type DiscussionContext,
 } from './discussions.js';
-import {appendPage, type History} from './operations.js';
-import {PAGE, type Message, type MessageView} from './messages.js';
+import {appendPage, type Cancellation, type History} from './operations.js';
+import {albumRecords, type Message, type MessageView} from './messages.js';
 import {describeError} from './errors.js';
+import {BrowseCache, BROWSE_DELAY} from './browseCache.js';
+
+export type DiscussionFilter = {view: MessageView; toggleView: () => void};
 
 type Pane = {
   key: string;
   history: History;
   selected: Set<number>;
   messageIndex: number;
-  status: 'loading' | 'ready' | 'error' | 'none' | 'stopped';
+  status: 'waiting' | 'loading' | 'ready' | 'error' | 'none' | 'stopped';
   target?: DiscussionTarget;
   error?: string;
 };
@@ -25,7 +28,7 @@ function empty(key: string): Pane {
     history: {items: [], cursor: 0, more: false},
     selected: new Set(),
     messageIndex: 0,
-    status: 'loading',
+    status: 'waiting',
   };
 }
 
@@ -34,24 +37,33 @@ export function useDiscussion(
   channel: Chat | undefined,
   selfId: string,
   post: Message | undefined,
+  options: {cache?: BrowseCache; scope?: 'group' | 'post'; enabled?: boolean; filter?: DiscussionFilter} = {},
 ) {
-  const [scope, setScope] = useState<'group' | 'post'>('group');
-  const [view, setView] = useState<MessageView>('mine');
+  const cache = useMemo(() => options.cache ?? new BrowseCache(client), [options.cache, client]);
+  const [scope, setScope] = useState<'group' | 'post'>(options.scope ?? 'group');
+  const [localView, setView] = useState<MessageView>('mine');
+  const view = options.filter?.view ?? localView;
   const [revision, setRevision] = useState(0);
   const [stored, setStored] = useState<Pane>(() => empty(''));
   const sourceId = channel?.id;
   const entity = channel?.entity;
   const selectedPostId = scope === 'post' ? post?.id : undefined;
   const groupedId = scope === 'post' ? post?.groupedId : undefined;
-  const key = `${sourceId ?? ''}:${scope}:${selectedPostId ?? ''}:${groupedId ?? ''}:${view}:${revision}`;
+  const historyKey = cache.key(
+    'discussion',
+    selfId,
+    sourceId,
+    scope,
+    groupedId ? `album:${groupedId}` : selectedPostId,
+    view,
+  );
+  const key = cache.key(historyKey, revision);
   const currentKey = useRef(key);
   currentKey.current = key;
-  const cache = useRef(new Map<string, Pane>());
-  const groups = useRef(new Map<string, Promise<Chat | undefined>>());
   const contexts = useRef(new Map<string, Map<number, DiscussionContext>>());
   const labels = useCallback(
     (peer: string) => {
-      const contextKey = `${peer}:${sourceId}`;
+      const contextKey = cache.key(peer, sourceId);
       let found = contexts.current.get(contextKey);
       if (!found) {
         found = new Map();
@@ -60,13 +72,25 @@ export function useDiscussion(
       }
       return found;
     },
-    [sourceId],
+    [cache, sourceId],
   );
+  const page = useCallback(
+    (target: DiscussionTarget, cursor: number, task: Cancellation) =>
+      cache.read(
+        cache.key('discussion-page', selfId, sourceId, target.chat.id, target.rootId, view, cursor),
+        (shared) => fetchDiscussionPage(client, target, selfId, view, cursor, labels(target.chat.id), shared),
+        task,
+      ),
+    [cache, client, selfId, sourceId, view, labels],
+  );
+  const immediate = useRef(false);
   const cancelRef = useRef<(() => void) | undefined>(undefined);
   const pane = stored.key === key ? stored : empty(key);
-
+  const enabled = options.enabled !== false;
   useEffect(() => {
-    if (!sourceId || !entity || !selfId) return;
+    // Retire the previous marks even if navigation returns before a read starts.
+    setStored((previous) => (previous.key === key ? previous : empty(key)));
+    if (!sourceId || !entity || !selfId || !enabled) return;
     let disposed = false;
     const task = {cancelled: false};
     cancelRef.current = () => {
@@ -75,38 +99,27 @@ export function useDiscussion(
     const publish = (next: Pane) => {
       if (!disposed && currentKey.current === key) setStored(next);
     };
-    const saved = cache.current.get(key);
-    if (saved) {
-      publish({...saved, selected: new Set()});
-      return () => {
-        disposed = true;
-      };
-    }
+    const saved = cache.history(historyKey);
+    const groupKey = cache.key('group', selfId, sourceId);
+    const threadKey = (peer: string) =>
+      cache.key('thread', selfId, sourceId, peer, groupedId ? `album:${groupedId}` : selectedPostId);
+    const cachedGroup = cache.value<Chat | null>(groupKey);
+    const canRestore = saved && cachedGroup && (scope === 'group' || cache.has(threadKey(cachedGroup.id)));
     const timer = setTimeout(
       () => {
         if (task.cancelled) {
           publish({...empty(key), status: 'stopped'});
           return;
         }
+        publish({...empty(key), status: 'loading'});
         void (async () => {
           let target: DiscussionTarget | undefined;
           try {
-            let pending = groups.current.get(sourceId);
-            if (!pending) {
-              pending = discussionChat(client, {
-                id: sourceId,
-                entity,
-                title: channel.title,
-                isPrivate: false,
-                isBroadcast: true,
-              });
-              groups.current.set(sourceId, pending);
-              if (groups.current.size > 24) groups.current.delete(groups.current.keys().next().value!);
-              void pending.catch(() => {
-                if (groups.current.get(sourceId) === pending) groups.current.delete(sourceId);
-              });
-            }
-            const group = await pending;
+            const group = await cache.read(
+              groupKey,
+              async () => (await discussionChat(client, channel)) ?? null,
+              task,
+            );
             if (disposed || currentKey.current !== key) return;
             if (task.cancelled) {
               publish({...empty(key), status: 'stopped'});
@@ -122,7 +135,25 @@ export function useDiscussion(
             }
             target =
               scope === 'post'
-                ? await discussionThread(client, channel, group, selectedPostId!, groupedId, task)
+                ? await cache.read(
+                    threadKey(group.id),
+                    (shared) =>
+                      discussionThread(
+                        client,
+                        channel,
+                        group,
+                        selectedPostId!,
+                        groupedId,
+                        shared,
+                        (api, chat, id, album) =>
+                          cache.read(
+                            cache.key('album', selfId, chat.id, album),
+                            () => albumRecords(api, chat, id, album),
+                            shared,
+                          ),
+                      ),
+                    task,
+                  )
                 : {chat: group};
             if (disposed || currentKey.current !== key) return;
             if (task.cancelled) {
@@ -138,26 +169,18 @@ export function useDiscussion(
               });
               return;
             }
-            const items = await fetchDiscussionPage(
-              client,
-              target,
-              selfId,
-              view,
-              0,
-              labels(target.chat.id),
-              task,
-            );
-            const next: Pane = {
+            const compatible =
+              saved?.namespace === cache.key(target.chat.id, target.rootId) ? saved : undefined;
+            const history =
+              compatible?.history ??
+              appendPage({items: [], cursor: 0, more: true}, await page(target, 0, task));
+            publish({
               ...empty(key),
               target,
-              history: appendPage({items: [], cursor: 0, more: true}, items),
-              status: 'ready',
-            };
-            publish(next);
-            if (!disposed && !task.cancelled && currentKey.current === key) {
-              cache.current.set(key, next);
-              if (cache.current.size > 12) cache.current.delete(cache.current.keys().next().value!);
-            }
+              history,
+              messageIndex: compatible?.index ?? 0,
+              status: task.cancelled ? 'stopped' : 'ready',
+            });
           } catch (error) {
             publish({
               ...empty(key),
@@ -168,8 +191,9 @@ export function useDiscussion(
           }
         })();
       },
-      scope === 'post' ? 180 : 0,
+      canRestore || immediate.current ? 0 : BROWSE_DELAY,
     );
+    immediate.current = false;
     return () => {
       disposed = true;
       task.cancelled = true;
@@ -187,8 +211,17 @@ export function useDiscussion(
     view,
     revision,
     key,
-    labels,
+    historyKey,
+    cache,
+    page,
+    enabled,
   ]);
+
+  useEffect(() => {
+    if (stored.key !== key || stored.status !== 'ready' || !stored.target) return;
+    cache.save(historyKey, stored.history, cache.key(stored.target.chat.id, stored.target.rootId));
+    cache.position(historyKey, stored.messageIndex);
+  }, [cache, historyKey, key, stored]);
 
   const update = (change: (previous: Pane) => Pane) => {
     setStored((previous) =>
@@ -199,41 +232,25 @@ export function useDiscussion(
     ...pane,
     view,
     scope,
-    toggleView: () => setView((value) => (value === 'mine' ? 'all' : 'mine')),
+    toggleView: options.filter?.toggleView ?? (() => setView((value) => (value === 'mine' ? 'all' : 'mine'))),
     toggleScope: () => setScope((value) => (value === 'group' ? 'post' : 'group')),
     cancel: () => cancelRef.current?.(),
     reload: () => {
-      cache.current.clear();
-      groups.current.clear();
+      immediate.current = true;
+      cache.clear();
       contexts.current.clear();
       setRevision((value) => value + 1);
     },
     select: (selected: Set<number>) => update((previous) => ({...previous, selected})),
     index: (messageIndex: number) => update((previous) => ({...previous, messageIndex})),
     publish: (history: History, selected?: Set<number>) =>
-      update((previous) => {
-        const next = {...previous, history, ...(selected ? {selected} : {})};
-        const cachedHistory =
-          history.items.length > PAGE
-            ? {items: history.items.slice(0, PAGE), cursor: history.items[PAGE - 1]!.id, more: true}
-            : history;
-        cache.current.set(key, {...next, history: cachedHistory, selected: new Set(), messageIndex: 0});
-        return next;
-      }),
-    fetch: (cursor: number, task: {readonly cancelled: boolean}) => {
+      update((previous) => ({...previous, history, ...(selected ? {selected} : {})})),
+    fetch: (cursor: number, task: Cancellation) => {
       if (!pane.target) throw new Error('Discussion target unavailable.');
-      return fetchDiscussionPage(
-        client,
-        pane.target,
-        selfId,
-        view,
-        cursor,
-        labels(pane.target.chat.id),
-        task,
-      );
+      return page(pane.target, cursor, task);
     },
     remove: (peer: string, ids: ReadonlySet<number>) => {
-      cache.current.clear();
+      cache.clear();
       update((previous) =>
         previous.target?.chat.id === peer
           ? {

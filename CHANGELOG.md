@@ -4,6 +4,10 @@
 
 ### Added
 
+- Offer to save API credentials privately during setup and reuse them on later launches.
+- Show channel-post or album details on the left and scrolling comments on the right, with a single-pane layout on narrow terminals.
+- Debounce chat navigation and share bounded, expiring history, thread, album and thumbnail caches between browsing and details.
+
 - Show media albums as one row; list individual message IDs and captions in details with per-item preview and opening controls.
 - Preview photos and available video/document thumbnails in message details with portable colour or monochrome cells; show attachment metadata and explicitly open supported originals in the system viewer.
 - Show an animated top-right activity indicator with operation counts and cancellation feedback; label own-message filtering while checks run.
@@ -19,6 +23,11 @@
 - Contributor checks and a manual trusted-publishing workflow template.
 
 ### Fixed
+
+- Synchronize Mine/All filtering between the main discussion pane and post/album details; clear discussion marks on filter changes, including rapid toggles through cached views.
+
+- Keep chat navigation responsive while automatic history reads are pending; reject late results and restore cached cursor positions without deletion marks.
+- Expand compact Telegram thumbnails before JPEG decoding and identify unsupported thumbnail formats instead of showing an SOI decoder error.
 
 - Resolve every media-album item to its shared comments thread, including items outside the loaded page; show unavailable post discussions without a persistent footer error.
 - Label the `s` shortcut “Select all” in the legend instead of “Own”.

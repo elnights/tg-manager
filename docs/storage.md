@@ -38,8 +38,8 @@ Development tests use synthetic temporary files and never access real sessions.
 ## Other storage and limits
 
 - Panel width is stored in `~/.config/tg-manager/settings.json`.
-- API credentials entered in the form are used for that run only. The app also
-  accepts environment variables or an explicitly supplied credentials file.
+- API credentials can be saved with consent during setup; see below. The app
+  also accepts environment variables or an explicitly supplied credentials file.
 - Chats load in pages of up to 100; press `m` for more. Search covers loaded chats.
   Message pages contain up to 100 messages; Enter opens the full text preview.
   Only opening message details fetches bounded image thumbnails. Large histories stay in memory.
@@ -50,6 +50,40 @@ Development tests use synthetic temporary files and never access real sessions.
 - User permissions do not protect against another process running as the same
   user, and underlying filesystems must support private permissions and atomic
   rename/hard-link operations for the storage guarantees.
+
+## API credentials
+
+After entering an API ID/hash in setup, choose **Y / Enter** at
+“Save API credentials on this device?” to remember the pair, or **N** to use it
+only for the current run. Cancelling before that choice writes nothing.
+
+The saved file is `credentials.json` beside `session.txt` in the user data
+directory listed above. It contains the API ID and hash as unencrypted JSON.
+The directory uses `0700` and the file uses `0600` where supported. Saves replace
+the file atomically; loads validate the contents and tighten permissions. The hash
+is masked in setup and is never included in validation or save-error messages.
+
+Normal launches load this pair when neither `TG_API_ID` nor `TG_API_HASH` is set.
+Environment credentials take priority as a complete pair; partial or invalid
+values open setup instead of being combined with saved values. `--config` must
+supply valid credentials through the existing environment-file mechanism; it
+never falls back to saved credentials. Neither source is saved automatically.
+A missing or invalid saved file opens setup again.
+
+To forget the saved API credentials, remove `credentials.json` from that
+directory. The next launch asks for the pair again unless you provide it through
+environment variables or `--config`. This does not remove or revoke the Telegram
+login session; manage that separately through Telegram’s Devices settings.
+
+An external credentials file for `--config` uses this format (replace both values):
+
+```text
+TG_API_ID=YOUR_API_ID
+TG_API_HASH=YOUR_API_HASH
+```
+
+Keep that file private as well. When running from source, pass it with
+`npm start -- --config /path/to/credentials`.
 
 ## Media details
 

@@ -537,7 +537,9 @@ test('Esc during deletion verifies the accepted batch and never starts another b
     assert.equal(mock.calls.deletes.length, 1);
     assert.equal(mock.calls.verifies, 1);
     await ui.press('r');
-    await ui.waitFor((frame) => frame.includes('100 / 205 requested; 100 verified absent'));
+    await ui.waitFor(
+      (frame) => frame.includes('/ 100 msgs') && frame.includes('100 / 205 requested; 100 verified absent'),
+    );
     await ui.press('\x1b');
     await ui.waitFor((frame) => !frame.includes('verified absent'));
   } finally {

@@ -25,6 +25,7 @@ Options:
 
 Requires Node.js 24+ and an interactive terminal.
 Use --config, export TG_API_ID/TG_API_HASH, or enter them in the TUI when asked.
+The setup prompt can save API credentials locally for later launches.
 On first launch, scan the QR code in Telegram's Devices settings.
 
 Groups and channels are shown by default. Press p to include private chats.

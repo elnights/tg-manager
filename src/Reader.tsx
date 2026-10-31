@@ -1,8 +1,9 @@
-import React, {useState, type ReactNode} from 'react';
+import React, {useEffect, useState, type ReactNode} from 'react';
 import {Box, useInput} from 'ink';
-import {Row} from './ui.js';
+import {PanelHeader, Row} from './ui.js';
+import type {BrowseCache} from './browseCache.js';
 import {wrapText} from './text.js';
-import {readerBindings, readerCommand, type ReaderMedia} from './commands.js';
+import {readerBindings, readerCommand, type ReaderMedia, type Shortcut} from './commands.js';
 import {legendRows, ShortcutLegend} from './Footer.js';
 import {ActivityHeader, type Progress} from './StatusBar.js';
 
@@ -16,6 +17,11 @@ export function Reader({
   media,
   onMediaAction,
   progress = null,
+  active = true,
+  shortcuts = [],
+  focused,
+  cache,
+  scrollKey,
 }: {
   title: string;
   text: string;
@@ -26,12 +32,17 @@ export function Reader({
   media?: ReaderMedia;
   onMediaAction?: (action: 'mediaPreview' | 'mediaOpen' | 'mediaPrevious' | 'mediaNext') => void;
   progress?: Progress | null;
+  active?: boolean;
+  shortcuts?: Shortcut[];
+  focused?: boolean;
+  cache?: BrowseCache;
+  scrollKey?: string;
 }) {
-  const [offset, setOffset] = useState(0);
-  let rows = legendRows(readerBindings(false, true, media), width);
+  const [offset, setOffset] = useState(() => (scrollKey ? (cache?.offset(scrollKey) ?? 0) : 0));
+  let rows = legendRows([...readerBindings(false, true, media), ...shortcuts], width);
   const canScroll = width >= 9 && height > rows.length + 1;
   const activeMedia = canScroll ? media : undefined;
-  if (!canScroll) rows = legendRows(readerBindings(false, false), width);
+  if (!canScroll) rows = legendRows([...readerBindings(false, false), ...shortcuts], width);
   const body = Math.max(0, height - rows.length - 1);
   const lines = [
     ...wrapText(text, width),
@@ -39,7 +50,11 @@ export function Reader({
   ];
   const maximum = Math.max(0, lines.length - body);
   const start = Math.min(offset, maximum);
+  useEffect(() => {
+    if (scrollKey) cache?.scroll(scrollKey, start);
+  }, [cache, scrollKey, start]);
   useInput((input, key) => {
+    if (!active) return;
     const command = readerCommand(input, key, false, canScroll, activeMedia);
     if (command === 'close') {
       onClose();
@@ -65,7 +80,13 @@ export function Reader({
   return (
     <Box width={width} height={height} flexDirection="column" overflow="hidden">
       {progress ? (
-        <ActivityHeader title={title} width={width} progress={progress} />
+        <ActivityHeader
+          title={`${focused === undefined ? '' : focused ? '[ACTIVE] ' : '[      ] '}${title}`}
+          width={width}
+          progress={progress}
+        />
+      ) : focused !== undefined ? (
+        <PanelHeader title={title} width={width} active={focused} />
       ) : (
         <Row width={width} bold color="cyanBright">
           {title}

@@ -6,6 +6,7 @@ import {Auth} from './Auth.js';
 import {CredentialPrompt} from './CredentialPrompt.js';
 import type {ApiCredentials} from './credentials.js';
 import {credentials, makeClient, saveSession} from './client.js';
+import {saveCredentials} from './credentialStore.js';
 import {TerminalOutput} from './terminal-output.js';
 
 function Root({client, apiCredentials}: {client: TelegramClient; apiCredentials: ApiCredentials}) {
@@ -22,7 +23,7 @@ function Root({client, apiCredentials}: {client: TelegramClient; apiCredentials:
 export async function start({allowCredentialPrompt = true} = {}) {
   let apiCredentials: ApiCredentials | undefined;
   try {
-    apiCredentials = credentials();
+    apiCredentials = credentials({allowSaved: allowCredentialPrompt});
   } catch (error) {
     if (!allowCredentialPrompt)
       throw new Error(
@@ -42,6 +43,7 @@ export async function start({allowCredentialPrompt = true} = {}) {
       <CredentialPrompt
         initialId={process.env.TG_API_ID}
         initialHash={process.env.TG_API_HASH}
+        persistCredentials={saveCredentials}
         onSubmit={submit}
       />
     ),
