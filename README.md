@@ -99,10 +99,18 @@ message, it drops out of the filtered list.
 Search covers loaded chat titles and IDs. Use `m` to load more chats and `R` to
 refresh the list. Other people's messages appear read-only (`[-]`) in All mode.
 
+Media albums appear as one row with an item count and caption. Enter opens the
+album's details with each item's message ID, caption and attachment information,
+including accessible items outside the loaded page. Use `[` / `]` in details to
+choose the item to preview or open. Space on an album marks your loaded items;
+`[~]` means some are marked. Loaded and selected counts refer to individual messages.
+The current item is highlighted in blue in both the preview section and the
+album item list. Labeled dividers separate the preview and each item's details.
+
 Enter opens message details, including photo previews and available video/file
 thumbnails. Previews use terminal colour cells, with monochrome characters when
 colour is unavailable, so no particular terminal or native image tool is required.
-`p` retries a preview; `o` explicitly downloads supported media (up to 50 MiB) and
+After a preview fails, `p` appears as **Retry preview**; `o` explicitly downloads supported media (up to 50 MiB) and
 opens the system viewer. On macOS, Linux and WSL this uses the platform's opener;
 a desktop viewer must be installed. If opening fails, details show the saved file
 path. Closing details cancels pending downloads and restores the message pane.

@@ -1,8 +1,10 @@
 import React, {useCallback, useEffect, useMemo, useRef, useState, type ReactNode} from 'react';
 import {Text} from 'ink';
+import stringWidth from 'string-width';
 import {Reader} from './Reader.js';
-import type {Message} from './messages.js';
-import type {TelegramApi} from './telegram.js';
+import {Row} from './ui.js';
+import {albumRecords, messageItems, messageRecords, type Message} from './messages.js';
+import type {Chat, TelegramApi} from './telegram.js';
 import {
   attachmentText,
   decodePreview,
@@ -48,13 +50,92 @@ export function previewRows(image: Raster, columns: number, rows: number, color:
   ));
 }
 
+type DetailsClient = Pick<TelegramApi, 'downloadMedia'> & Partial<Pick<TelegramApi, 'getMessages'>>;
+
+function DetailSection({title, width, active = false}: {title: string; width: number; active?: boolean}) {
+  const label = `${active ? '[CURRENT]' : '──'} ${title} `;
+  return (
+    <Row
+      width={width}
+      bold
+      color={active ? '#ffffff' : 'cyanBright'}
+      backgroundColor={active ? '#1e3a8a' : undefined}
+    >
+      {label + '─'.repeat(Math.max(0, width - stringWidth(label)))}
+    </Row>
+  );
+}
+
 export function MessageDetails({
+  message,
+  client,
+  chat,
+  selfId,
+  ...props
+}: {
+  message: Message;
+  client: DetailsClient;
+  chat?: Chat;
+  selfId?: string;
+  width: number;
+  height: number;
+  onClose: () => void;
+  files?: MediaFiles;
+}) {
+  const [items, setItems] = useState(() => messageItems(message));
+  const [selectedId, setSelectedId] = useState(() => messageItems(message)[0]!.id);
+  const [albumStatus, setAlbumStatus] = useState(
+    message.groupedId && client.getMessages && chat && selfId ? 'Loading album items…' : '',
+  );
+  useEffect(() => {
+    if (!message.groupedId || !client.getMessages || !chat || !selfId) return;
+    let disposed = false;
+    void albumRecords({getMessages: client.getMessages.bind(client)}, chat, message.id, message.groupedId)
+      .then((records) => {
+        if (disposed) return;
+        const found = new Map(messageItems(message).map((item) => [item.id, item]));
+        for (const item of messageRecords(records, selfId, 'all'))
+          if (!found.has(item.id)) found.set(item.id, item);
+        setItems([...found.values()].sort((a, b) => a.id - b.id));
+        setAlbumStatus(records.length ? '' : 'No additional album items are accessible.');
+      })
+      .catch((error) => {
+        if (!disposed) setAlbumStatus(`Album items unavailable: ${describeError(error)}`);
+      });
+    return () => {
+      disposed = true;
+    };
+  }, [client, chat, selfId, message]);
+  const index = Math.max(
+    0,
+    items.findIndex((item) => item.id === selectedId),
+  );
+  const current = items[index]!;
+  return (
+    <MessageItemDetails
+      key={current.id}
+      {...props}
+      client={client}
+      message={current}
+      album={message.groupedId ? items : undefined}
+      albumStatus={albumStatus}
+      albumIndex={index}
+      onItem={(next) => setSelectedId(items[next]!.id)}
+    />
+  );
+}
+
+function MessageItemDetails({
   message,
   client,
   width,
   height,
   onClose,
   files,
+  album,
+  albumStatus,
+  albumIndex,
+  onItem,
 }: {
   message: Message;
   client: Pick<TelegramApi, 'downloadMedia'>;
@@ -62,6 +143,10 @@ export function MessageDetails({
   height: number;
   onClose: () => void;
   files?: MediaFiles;
+  album?: readonly Message[];
+  albumStatus: string;
+  albumIndex: number;
+  onItem: (index: number) => void;
 }) {
   const attachment = message.attachment;
   const canPreview = Boolean(attachment?.preview && client.downloadMedia);
@@ -69,6 +154,7 @@ export function MessageDetails({
     attachment?.extension && client.downloadMedia && (attachment.size ?? 0) <= MEDIA_BYTES,
   );
   const [image, setImage] = useState<Raster>();
+  const [previewFailed, setPreviewFailed] = useState(false);
   const [status, setStatus] = useState('');
   const [progress, setProgress] = useState<Progress | null>(canPreview ? {label: 'Loading preview'} : null);
   const current = useRef<AbortController | null>(null);
@@ -79,6 +165,7 @@ export function MessageDetails({
       if (!attachment || current.current || closed.current) return;
       const task = new AbortController();
       current.current = task;
+      if (preview) setPreviewFailed(false);
       setProgress({label: preview ? 'Loading preview' : 'Downloading media'});
       setStatus(preview ? 'Loading image preview…' : 'Downloading attachment for the system viewer…');
       try {
@@ -106,8 +193,10 @@ export function MessageDetails({
           }
         }
       } catch (error) {
-        if (!task.signal.aborted)
+        if (!task.signal.aborted) {
+          if (preview) setPreviewFailed(true);
           setStatus(`${preview ? 'Preview unavailable' : 'Cannot open media'}: ${describeError(error)}`);
+        }
       } finally {
         if (!task.signal.aborted) {
           current.current = null;
@@ -138,10 +227,11 @@ export function MessageDetails({
         : [],
     [image, width, height],
   );
-  const extraLines: ReactNode[] = attachment
+  const mediaLines: ReactNode[] = attachment
     ? [
         '',
         attachmentText(attachment),
+        ...(album ? [<DetailSection title={`Preview · #${message.id}`} width={width} />] : []),
         ...(status
           ? [status]
           : [canPreview ? 'Loading image preview…' : 'No image preview is available for this attachment.']),
@@ -155,17 +245,59 @@ export function MessageDetails({
           : []),
       ]
     : [];
+  const text = `${message.context ? message.context + '\n' : ''}${message.author} · ${message.date}\n${message.content}`;
+  const extraLines: ReactNode[] = album
+    ? [
+        '',
+        <DetailSection
+          title={`Viewing item ${albumIndex + 1}/${album.length} · #${message.id}`}
+          width={width}
+          active
+        />,
+        text,
+        ...mediaLines,
+        <DetailSection title={`End preview · #${message.id}`} width={width} />,
+        '',
+        ...(albumStatus ? [albumStatus, ''] : []),
+        <DetailSection title="Album items" width={width} />,
+        ...album.flatMap((item, index) => [
+          '',
+          <DetailSection
+            title={`MESSAGE #${item.id} · Item ${index + 1}/${album.length}`}
+            width={width}
+            active={item.id === message.id}
+          />,
+          `${item.author}${item.date ? ` · ${item.date}` : ''}`,
+          item.content,
+          ...(item.attachment ? [attachmentText(item.attachment)] : []),
+        ]),
+      ]
+    : mediaLines;
   return (
     <Reader
-      title={`MESSAGE ${message.id} · Read only`}
-      text={`${message.context ? message.context + '\n' : ''}${message.author} · ${message.date}\n${message.content}`}
+      title={
+        album
+          ? `ALBUM · ${album.length} items · #${message.id} · Read only`
+          : `MESSAGE ${message.id} · Read only`
+      }
+      text={album ? `Items: ${album.map((item) => `#${item.id}`).join(', ')}` : text}
       width={width}
       height={height}
       onClose={onClose}
       extraLines={extraLines}
       progress={progress}
-      media={{preview: canPreview, open: canOpen && !saved.current, busy: Boolean(progress)}}
-      onMediaAction={(action) => void run(action === 'mediaPreview')}
+      media={{
+        preview: canPreview && previewFailed,
+        open: canOpen && !saved.current,
+        busy: Boolean(progress),
+        previous: albumIndex > 0,
+        next: albumIndex < (album?.length ?? 1) - 1,
+      }}
+      onMediaAction={(action) => {
+        if (action === 'mediaPrevious') onItem(albumIndex - 1);
+        else if (action === 'mediaNext') onItem(albumIndex + 1);
+        else void run(action === 'mediaPreview');
+      }}
     />
   );
 }

@@ -29,6 +29,7 @@ export type MessageRecord = {
   peerId?: Api.TypePeer;
   replyTo?: object;
   fwdFrom?: object;
+  groupedId?: Identifier;
   replies?: {replies: number};
 };
 export type MessageOptions = {

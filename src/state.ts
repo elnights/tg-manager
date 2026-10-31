@@ -1,5 +1,5 @@
 import {chatType, defaultChatTypes, type Chat, type ChatType} from './telegram.js';
-import type {Message, MessageView} from './messages.js';
+import {messageItems, messageRows, type Message, type MessageView} from './messages.js';
 import type {History} from './operations.js';
 
 export type ViewState = {
@@ -132,7 +132,9 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
         !state.chats.find((chat) => chat.id === action.chatId)?.isBroadcast
       )
         return state;
-      const index = action.history.items.findIndex((message) => message.id === action.postId);
+      const index = messageRows(action.history.items).findIndex((message) =>
+        messageItems(message).some((item) => item.id === action.postId),
+      );
       if (index === -1) return state;
       const own = new Set(action.history.items.filter((message) => message.own).map((message) => message.id));
       return {
@@ -162,11 +164,15 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
         ...state,
         history: action.history,
         messageStatus: 'ready',
+        messageIndex: Math.max(0, Math.min(state.messageIndex, messageRows(action.history.items).length - 1)),
         ...(action.selected ? {selected: action.selected} : {}),
       };
     }
     case 'index':
-      return {...state, messageIndex: Math.max(0, Math.min(state.history.items.length - 1, action.index))};
+      return {
+        ...state,
+        messageIndex: Math.max(0, Math.min(messageRows(state.history.items).length - 1, action.index)),
+      };
     case 'selection':
       return {...state, selected: action.ids};
     case 'absent': {
@@ -176,7 +182,7 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
         ...state,
         history: {...state.history, items},
         selected: new Set([...state.selected].filter((id) => !action.ids.has(id))),
-        messageIndex: Math.max(0, Math.min(state.messageIndex, items.length - 1)),
+        messageIndex: Math.max(0, Math.min(state.messageIndex, messageRows(items).length - 1)),
       };
     }
   }

@@ -24,7 +24,7 @@ export function Reader({
   onClose: () => void;
   extraLines?: ReactNode[];
   media?: ReaderMedia;
-  onMediaAction?: (action: 'mediaPreview' | 'mediaOpen') => void;
+  onMediaAction?: (action: 'mediaPreview' | 'mediaOpen' | 'mediaPrevious' | 'mediaNext') => void;
   progress?: Progress | null;
 }) {
   const [offset, setOffset] = useState(0);
@@ -46,7 +46,12 @@ export function Reader({
       return;
     }
     if (!command) return;
-    if (command === 'mediaPreview' || command === 'mediaOpen') {
+    if (
+      command === 'mediaPreview' ||
+      command === 'mediaOpen' ||
+      command === 'mediaPrevious' ||
+      command === 'mediaNext'
+    ) {
       onMediaAction?.(command);
       return;
     }

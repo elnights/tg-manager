@@ -453,13 +453,27 @@ const scrollBindings: Binding[] = [
   {id: 'page', key: 'PgUp/PgDn', label: 'Page', keys: ['pageUp', 'pageDown']},
   {id: 'ends', key: 'Home/End', label: 'Ends', keys: ['home', 'end']},
 ];
-export type ReaderMedia = {preview: boolean; open: boolean; busy: boolean};
+export type ReaderMedia = {
+  preview: boolean;
+  open: boolean;
+  busy: boolean;
+  previous?: boolean;
+  next?: boolean;
+};
 export function readerBindings(help: boolean, canScroll = true, media?: ReaderMedia): Binding[] {
   return [
     ...(canScroll ? scrollBindings.filter((binding) => !help || binding.id !== 'ends') : []),
+    ...(!help && media
+      ? [
+          ...(media.previous ? [{id: 'mediaPrevious', key: '[', label: 'Previous item', chars: ['[']}] : []),
+          ...(media.next ? [{id: 'mediaNext', key: ']', label: 'Next item', chars: [']']}] : []),
+        ]
+      : []),
     ...(!help && media && !media.busy
       ? [
-          ...(media.preview ? [{id: 'mediaPreview', key: 'p', label: 'Preview', chars: ['p']}] : []),
+          ...(media.preview
+            ? [{id: 'mediaPreview', key: 'p', label: 'Retry preview', compactLabel: 'Retry', chars: ['p']}]
+            : []),
           ...(media.open
             ? [{id: 'mediaOpen', key: 'o', label: 'Open media', compactLabel: 'Open', chars: ['o']}]
             : []),
@@ -521,12 +535,22 @@ export const helpSections = (
           ['? / Esc', 'Close help; ↑↓ or j/k scroll help'],
           [
             'p / o in details',
-            'Retry the media preview / download and open supported media in the system viewer',
+            'Retry a failed preview (p appears only after failure) / download and open supported media in the system viewer',
+          ],
+          [
+            '[ / ] in album details',
+            'Previous / next album item for previewing or opening; each item retains its message ID',
           ],
         ]
       : []),
     ...(title === 'Message selection'
-      ? modalBindings.select.map((binding) => [binding.key, `Selection prompt: ${binding.label}`])
+      ? [
+          ...modalBindings.select.map((binding) => [binding.key, `Selection prompt: ${binding.label}`]),
+          [
+            'Album rows',
+            'Space marks your loaded items; [~] means some are marked. Counts refer to individual messages.',
+          ],
+        ]
       : []),
     ...(title === 'Loading and pagination'
       ? [

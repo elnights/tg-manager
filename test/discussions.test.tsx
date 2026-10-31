@@ -5,6 +5,7 @@ import React from 'react';
 import {Api} from 'teleproto';
 import {returnBigInt} from 'teleproto/Helpers.js';
 import {getPeerId} from 'teleproto/Utils.js';
+import {MsgIdInvalidError} from 'teleproto/errors/RPCErrorList.js';
 import {
   chatsFromDialogs,
   discussionChat,
@@ -14,6 +15,7 @@ import {
 } from '../src/telegram.js';
 import {checkOwnChats} from '../src/dialogs.js';
 import {fetchDiscussionPage, discussionThread} from '../src/discussions.js';
+import {messageRecords} from '../src/messages.js';
 import {App} from './helpers/App.js';
 import {testTerminal} from './helpers/terminal.js';
 import {photo, image} from './helpers/media.js';
@@ -151,6 +153,31 @@ function fixture({joined = false, count = 2, ownPost = true, general = true} = {
     },
   };
   return {client, calls, controls, dialogs, records, channel, group, channelId, groupId, root};
+}
+function albumFixture(captionId = 300) {
+  const mock = fixture();
+  const groupedId = returnBigInt('9007199254740993');
+  const album = [302, 301, 300].map((id) => ({
+    id,
+    groupedId,
+    message: id === captionId ? 'Album caption' : '',
+    media: photo(id),
+    senderId: id === 300 ? 99 : 42,
+    peerId: new Api.PeerChannel({channelId: mock.channel.id}),
+    ...(id === 300 ? {replies: {replies: 2}} : {}),
+  }));
+  mock.records.set(mock.channelId, [...album, mock.records.get(mock.channelId)![1]!]);
+  const roots = [mock.root(102, 302), mock.root(101, 301), mock.root(100, 300)];
+  mock.client.api!.messages!.getDiscussionMessage = async ({msgId}) => {
+    mock.calls.threads.push(msgId);
+    await mock.controls.thread?.(msgId);
+    if (msgId !== 300)
+      throw new MsgIdInvalidError({
+        request: new Api.messages.GetDiscussionMessage({peer: new Api.InputPeerSelf(), msgId}),
+      });
+    return {messages: roots, chats: [mock.channel, mock.group]};
+  };
+  return {...mock, album, roots, groupedId: groupedId.toString()};
 }
 async function ready(ui: ReturnType<typeof testTerminal>) {
   await ui.waitFor(
@@ -841,6 +868,184 @@ test('thread resolution rejects a root belonging to another channel', async () =
     discussionThread(mock.client, chatsFromDialogs(mock.dialogs)[0]!, group!, 300),
     /No accessible discussion/,
   );
+});
+
+test('album items preserve their exact grouped ID and resolve the first shared discussion root', async () => {
+  const mock = albumFixture(302);
+  const channel = chatsFromDialogs(mock.dialogs)[0]!;
+  const group = (await discussionChat(mock.client, channel))!;
+  const items = messageRecords(mock.album, '42', 'all');
+  assert.deepEqual(
+    items.map((item) => item.groupedId),
+    Array(3).fill('9007199254740993'),
+  );
+  // An unrelated neighbouring album and a foreign peer must not supply a root.
+  mock.records.get(mock.channelId)!.push(
+    {id: 299, groupedId: returnBigInt(77), replies: {replies: 1}},
+    {
+      id: 298,
+      groupedId: returnBigInt(mock.groupedId),
+      peerId: new Api.PeerChannel({channelId: mock.group.id}),
+    },
+  );
+  mock.roots.unshift(mock.root(2, 299), mock.root(1, 298));
+  for (const item of items) {
+    const target = await discussionThread(mock.client, channel, group, item.id, item.groupedId);
+    assert.deepEqual(target, {chat: group, postId: 300, rootId: 100});
+    const mine = await fetchDiscussionPage(mock.client, target!, '42', 'mine');
+    assert.deepEqual(
+      mine.map((message) => message.id),
+      [300],
+    );
+    assert.equal(mine[0]?.sourcePostId, 300);
+  }
+  assert.deepEqual(mock.calls.threads, [300, 300, 300]);
+  const lookups = mock.calls.reads.filter((call) => call.peer === mock.channelId);
+  assert.equal(lookups.length, 3);
+  assert.ok(lookups.every((call) => call.options.ids?.length === 19 && !call.options.fromUser));
+  mock.roots.splice(0, mock.roots.length, mock.root(1, 299));
+  await assert.rejects(
+    discussionThread(mock.client, channel, group, 302, mock.groupedId),
+    /No accessible discussion/,
+  );
+});
+
+test('album resolution uses thread metadata rather than caption position or response order', async () => {
+  const mock = albumFixture(302);
+  // The first surviving item can lack thread metadata; use the item carrying it.
+  mock.album[2]!.replies = undefined;
+  mock.album[1]!.replies = {replies: 2};
+  mock.client.api!.messages!.getDiscussionMessage = async ({msgId}) => {
+    mock.calls.threads.push(msgId);
+    return {messages: mock.roots, chats: [mock.channel, mock.group]};
+  };
+  const channel = chatsFromDialogs(mock.dialogs)[0]!;
+  const group = (await discussionChat(mock.client, channel))!;
+  const target = await discussionThread(mock.client, channel, group, 302, mock.groupedId);
+  assert.equal(mock.calls.threads[0], 301);
+  assert.equal(target?.rootId, 100);
+  mock.album[1]!.replies = undefined;
+  await discussionThread(mock.client, channel, group, 302, mock.groupedId);
+  assert.equal(mock.calls.threads[1], 300, 'without reply metadata the first album item is used');
+});
+
+test('cancelled album lookup starts no thread RPC, and genuine lookup failures remain errors', async () => {
+  const mock = albumFixture();
+  const channel = chatsFromDialogs(mock.dialogs)[0]!;
+  const group = (await discussionChat(mock.client, channel))!;
+  const task = {cancelled: false};
+  mock.controls.read = async (_peer, options) => {
+    if (options.ids) task.cancelled = true;
+  };
+  assert.equal(await discussionThread(mock.client, channel, group, 302, mock.groupedId, task), undefined);
+  assert.equal(mock.calls.threads.length, 0);
+  mock.controls.read = async () => {
+    throw new Error('Synthetic album lookup failure');
+  };
+  await assert.rejects(
+    discussionThread(mock.client, channel, group, 302, mock.groupedId),
+    /Synthetic album lookup failure/,
+  );
+  mock.controls.thread = async () => {
+    throw new Error('Synthetic thread failure');
+  };
+  await assert.rejects(discussionThread(mock.client, channel, group, 300), /Synthetic thread failure/);
+});
+
+for (const captionId of [300, 302]) {
+  test(`one album row shares comments when the caption belongs to #${captionId}, including an unloaded owner`, async () => {
+    const mock = albumFixture(captionId);
+    const read = mock.client.getMessages;
+    mock.client.getMessages = async (entity, options) => {
+      const found = await read(entity, options);
+      return getPeerId(entity) === mock.channelId && !options.ids
+        ? found.filter((record) => record?.id !== 300)
+        : found;
+    };
+    const ui = testTerminal(<App client={mock.client} />);
+    try {
+      await ready(ui);
+      await ui.press('\t');
+      await ui.press('t');
+      await ui.waitFor(
+        (frame) =>
+          frame.includes('DISCUSSION · Post #302') &&
+          frame.includes('My comment 0') &&
+          !frame.includes('Loading discussion'),
+      );
+      assert.ok(!ui.frame().includes('My comment 1') && !ui.frame().includes('My general message'));
+      assert.equal(ui.frame().split('[Album: 2 items]').length - 1, 1);
+      await ui.press('\r');
+      await ui.waitFor(
+        (frame) => frame.includes('ALBUM · 3 items') && frame.includes('Items: #300, #301, #302'),
+      );
+      await ui.press('\x1b[F');
+      assert.ok(ui.frame().includes('Album caption'));
+      await ui.press('\x1b');
+      assert.ok(
+        ui.frames.every(
+          (frame) => !frame.includes('Discussion loading failed') && !frame.includes('MsgIdInvalidError'),
+        ),
+      );
+      assert.deepEqual(mock.calls.threads, [300]);
+      await ui.press('\t');
+      await ui.press('A');
+      await ui.waitFor((frame) => frame.includes('DELETE 1 of YOUR messages'));
+      assert.ok(ui.frame().includes('Selected post #300; this thread only.'));
+      assert.deepEqual(mock.calls.scans, [{peer: mock.groupId, topMsgId: 100}]);
+      await confirmDelete(ui);
+      await ui.waitFor((frame) => frame.includes('1 verified absent'));
+      assert.deepEqual(mock.calls.deletes, [{peer: mock.groupId, ids: [300]}]);
+      assert.ok(mock.records.get(mock.groupId)?.some((record) => record.id === 299));
+      assert.ok(mock.records.get(mock.channelId)?.some((record) => record.id === 301));
+    } finally {
+      await ui.close();
+    }
+  });
+}
+
+test('unavailable post discussions stay local, cannot scan the group, and do not leave a footer error', async () => {
+  const mock = fixture();
+  mock.controls.thread = async (post) => {
+    if (post === 300)
+      throw new MsgIdInvalidError({
+        request: new Api.messages.GetDiscussionMessage({peer: new Api.InputPeerSelf(), msgId: post}),
+      });
+  };
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ready(ui);
+    const groupReads = mock.calls.reads.filter((call) => call.peer === mock.groupId).length;
+    await ui.press('\t');
+    await ui.press('t');
+    await ui.waitFor((frame) => frame.includes('No accessible discussion for this post'));
+    assert.equal(mock.calls.reads.filter((call) => call.peer === mock.groupId).length, groupReads);
+    await ui.press('\t');
+    await ui.press('A');
+    await ui.press('d');
+    await ui.press('n');
+    assert.equal(mock.calls.scans.length, 0);
+    assert.equal(mock.calls.deletes.length, 0);
+    assert.ok(!ui.frame().includes('DELETE'));
+    await ui.press('\x1b[Z');
+    await ui.press('\x1b[B');
+    await ui.waitFor((frame) => frame.includes('My comment 1') && !frame.includes('Loading discussion'));
+    assert.ok(
+      ui.frames.every(
+        (frame) => !frame.includes('Discussion loading failed') && !frame.includes('MsgIdInvalidError'),
+      ),
+    );
+  } finally {
+    await ui.close();
+  }
+});
+
+test('an empty discussion response is unavailable rather than an unscoped group target', async () => {
+  const mock = fixture();
+  mock.client.api!.messages!.getDiscussionMessage = async () => ({messages: [], chats: []});
+  const channel = chatsFromDialogs(mock.dialogs)[0]!;
+  const group = (await discussionChat(mock.client, channel))!;
+  assert.equal(await discussionThread(mock.client, channel, group, 300), undefined);
 });
 
 test('missing discussions use full-height posts; inaccessible discussions allow retry without losing post marks', async () => {

@@ -22,6 +22,9 @@ package's allowlist.
 `src/media.ts` handles attachment metadata, bounded downloads, JPEG decoding and
 private temporary viewer files. `src/MessageDetails.tsx` owns detail-view transfers
 and portable image rows; `src/Reader.tsx` owns their scrolling and advertised keys.
+Album details use single-row section headers and preview boundaries within the
+reader's scrolling body; the current item has a textual marker and white text
+on dark blue in both its preview header and the item list.
 
 Keep the Ink/React/TypeScript app small. Share related behavior at these existing
 boundaries before introducing another abstraction or runtime dependency. The
@@ -50,7 +53,15 @@ package exposes a CLI, with no supported programmatic API.
 - Resolve linked groups using `channels.getFullChannel` and post roots using
   `messages.getDiscussionMessage`. Validate the returned group peer and forwarded
   source channel/post before using a thread ID. Never substitute the channel on
-  failure or join implicitly. Carry a typed source post ID alongside context
+  failure or join implicitly. Preserve exact album (`groupedId`) identifiers;
+  resolve sibling items in a bounded source-channel lookup independent of loaded
+  pages and author filters. Use thread metadata or the first album item, never
+  caption position, to request the discussion; use the first validated forwarded
+  album message as its shared group root. `MSG_ID_INVALID` and empty discussion
+  responses leave the post discussion unavailable with no operation target or
+  persistent footer error. Other RPC/validation failures remain errors; an
+  unavailable post must never fetch or scan the entire group.
+  Carry a typed source post ID alongside context
   labels; never derive navigation targets by parsing display strings. Direct
   replies fall back from an absent top ID to the reply ID. Follow same-group
   reply chains in batches until a forwarded source post or confirmed ordinary
@@ -70,6 +81,15 @@ package exposes a CLI, with no supported programmatic API.
   post changes and bound cached pages; refresh/deletion invalidates caches.
   Automatic discussion reads allow post navigation, while explicit load/scan/
   deletion operations keep their existing synchronous duplicate guard.
+- Histories retain individual messages and raw pagination cursors; `messageRows`
+  groups albums only for presentation and navigation. An album keeps the first
+  loaded item's row ID as older members arrive. Source-post navigation matches
+  every member ID. Marking a row toggles only its owned loaded members; new page
+  members remain unmarked, and partial selection uses `[~]`. Selection counts,
+  deletion confirmations and verification always count individual message IDs.
+  Details capture the row and peer, resolve missing album items read-only, and
+  never add those inspection results to history or selection. Each attachment
+  uses its original message object; switching details items aborts its transfer.
 - Focusing a linked discussion row highlights its channel post while keeping
   keyboard focus in the discussion. `g` explicitly transfers focus. A missing
   loaded post is located with a contiguous All-authors page and a real cursor;
@@ -96,7 +116,9 @@ package exposes a CLI, with no supported programmatic API.
 - Media comes from the captured message object, including the correct discussion
   peer; never cache attachments by bare message ID. Only details request bounded
   thumbnails, and originals require an explicit reader action. Abort and discard
-  late results on close. Limit transfer bytes and decoder memory/resolution.
+  late results on close. Preview retry (`p`) is available only after a failed
+  thumbnail download or decode; hide it during retries and after success.
+  Limit transfer bytes and decoder memory/resolution.
   Use ordinary terminal cells, with monochrome fallback, so resizing and clearing
   remain inside Ink. Native graphics protocols and external decoders are unnecessary.
 - Viewer files use a private temporary directory and generated MIME-based names,
@@ -171,6 +193,7 @@ package exposes a CLI, with no supported programmatic API.
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | Confirmation, login, retry and notice retention                        | `test/safety.test.tsx`                                                                      |
 | Own-message selection and message views                                | `test/features.test.tsx`, `test/own-chats.test.tsx`                                         |
+| Album grouping, pagination, item details and per-message deletion      | `test/albums.test.tsx`, `test/discussions.test.tsx`, `test/media.test.tsx`                  |
 | Channel discussions, discovery, peer isolation and comment deletion    | `test/discussions.test.tsx`, `test/discussion-context.test.tsx`, `test/chat-types.test.tsx` |
 | Pagination, deletion verification and settings failures                | `test/operations.test.tsx`                                                                  |
 | Search, dialog pages, detail input isolation and stable loading layout | `test/navigation.test.tsx`                                                                  |

@@ -1,4 +1,5 @@
-import type {Entity, MessageRecord, TelegramApi} from './telegram.js';
+import {getPeerId} from 'teleproto/Utils.js';
+import type {Chat, Entity, MessageRecord, TelegramApi} from './telegram.js';
 import {attachmentFor, type Attachment} from './media.js';
 
 export const PAGE = 100;
@@ -11,9 +12,70 @@ export type Message = {
   author: string;
   context?: string;
   sourcePostId?: number;
+  groupedId?: string;
   comments?: number;
   attachment?: Attachment;
+  album?: readonly Message[];
 };
+
+export function messageItems(message: Message): readonly Message[] {
+  return message.album ?? [message];
+}
+
+// Histories and cursors retain individual messages. Only the visible rows are
+// grouped, so pagination and verified deletion keep their original ID space.
+export function messageRows(messages: readonly Message[]): Message[] {
+  const albums = new Map<string, Message[]>();
+  for (const message of messages) {
+    if (!message.groupedId) continue;
+    const items = albums.get(message.groupedId) ?? [];
+    items.push(message);
+    albums.set(message.groupedId, items);
+  }
+  const seen = new Set<string>();
+  return messages.flatMap((message) => {
+    if (!message.groupedId) return [message];
+    if (seen.has(message.groupedId)) return [];
+    seen.add(message.groupedId);
+    const items = albums.get(message.groupedId)!.sort((a, b) => a.id - b.id);
+    const first = items[0]!;
+    const captions = items.filter((item) => item.content !== '[media]' && item.content !== '[service]');
+    const comments = items.find((item) => item.comments !== undefined)?.comments;
+    const authors = new Set(items.map((item) => item.author));
+    return [
+      {
+        ...first,
+        id: message.id,
+        album: items,
+        content: captions.map((item) => item.content).join('\n') || '[media]',
+        own: items.some((item) => item.own),
+        author: authors.size === 1 ? first.author : 'Multiple authors',
+        ...(comments === undefined ? {} : {comments}),
+      },
+    ];
+  });
+}
+
+export async function albumRecords(
+  client: Pick<TelegramApi, 'getMessages'>,
+  chat: Pick<Chat, 'id' | 'entity'>,
+  postId: number,
+  groupedId: string,
+): Promise<MessageRecord[]> {
+  const ids = Array.from({length: 19}, (_, index) => postId - 9 + index).filter((id) => id > 0);
+  const records = await client.getMessages(chat.entity, {ids});
+  return records
+    .filter((record): record is MessageRecord =>
+      Boolean(
+        record &&
+        record.className !== 'MessageEmpty' &&
+        ids.includes(record.id) &&
+        (!record.peerId || getPeerId(record.peerId) === chat.id) &&
+        record.groupedId?.toString() === groupedId,
+      ),
+    )
+    .sort((a, b) => a.id - b.id);
+}
 
 export async function hasOwnMessages(
   client: Pick<TelegramApi, 'getMessages'>,
@@ -72,14 +134,16 @@ export function messageRecords(
         content: message.message || (message.media ? '[media]' : '[service]'),
         own,
         author: own ? 'You' : authorName(message),
+        ...(message.groupedId ? {groupedId: message.groupedId.toString()} : {}),
         ...(message.media ? {attachment: attachmentFor(message)} : {}),
         ...(message.replies ? {comments: message.replies.replies} : {}),
       };
     });
 }
 
-export function ownMessageIds(messages: Message[], selected?: ReadonlySet<number>): number[] {
+export function ownMessageIds(messages: readonly Message[], selected?: ReadonlySet<number>): number[] {
   return messages
+    .flatMap(messageItems)
     .filter((message) => message.own && (!selected || selected.has(message.id)))
     .map((message) => message.id);
 }

@@ -13,7 +13,12 @@ import type {MessageRecord} from '../src/telegram.js';
 import {photo, image} from '../test/helpers/media.js';
 
 // Public, synthetic fixtures only: no authentication, disk settings or sessions.
-function syntheticClient(channelMode = false, slow = false, mediaMode = false): TelegramApi {
+function syntheticClient(
+  channelMode = false,
+  slow = false,
+  mediaMode = false,
+  albumMode = false,
+): TelegramApi {
   const channel = new Api.Channel({
     id: returnBigInt(1000),
     accessHash: returnBigInt(123),
@@ -45,6 +50,13 @@ function syntheticClient(channelMode = false, slow = false, mediaMode = false): 
     ...(index === 0 ? {} : {replyTo: {replyToTopId: 1000 + 300 - (index % 3)}}),
   }));
   if (mediaMode) records[1]!.media = photo();
+  if (albumMode)
+    for (let index = 0; index < 3; index++)
+      Object.assign(records[index]!, {
+        groupedId: returnBigInt('9007199254740993'),
+        media: photo(index + 1),
+        message: index === 1 ? 'A synthetic album with three photos and one shared discussion.' : '',
+      });
   const root = (post: number): MessageRecord => ({
     id: 1000 + post,
     message: 'Forwarded channel post',
@@ -170,6 +182,7 @@ ${lines.map((line, index) => `<text x="12" y="${48 + index * 19}" xml:space="pre
         process.argv.includes('--channel'),
         process.argv.includes('--slow'),
         process.argv.includes('--media'),
+        process.argv.includes('--album'),
       )}
       mediaFiles={{
         open: async () => {

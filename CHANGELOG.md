@@ -4,6 +4,7 @@
 
 ### Added
 
+- Show media albums as one row; list individual message IDs and captions in details with per-item preview and opening controls.
 - Preview photos and available video/document thumbnails in message details with portable colour or monochrome cells; show attachment metadata and explicitly open supported originals in the system viewer.
 - Show an animated top-right activity indicator with operation counts and cancellation feedback; label own-message filtering while checks run.
 - Show chat-type badges and filter any combination of private chats, bots, basic groups, supergroups and channels.
@@ -19,6 +20,7 @@
 
 ### Fixed
 
+- Resolve every media-album item to its shared comments thread, including items outside the loaded page; show unavailable post discussions without a persistent footer error.
 - Label the `s` shortcut “Select all” in the legend instead of “Own”.
 - Show “t to change scope” beside the discussion pane's scope label.
 - Show `p` in the footer legend and clarify that it toggles private chats and bots together.
@@ -36,6 +38,8 @@
 
 ### Changed
 
+- Highlight the current album item and separate its preview and individual item details with labeled section dividers.
+- Show `p` as “Retry preview” in media details only after a preview fails.
 - Separate view toggles and loaded counts into a top strip; simplify the action footer.
 - Keep layout and extended navigation shortcuts in keyboard help.
 

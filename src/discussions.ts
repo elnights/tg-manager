@@ -1,6 +1,6 @@
 import {Api} from 'teleproto';
 import {getInputPeer, getPeerId} from 'teleproto/Utils.js';
-import {messageRecords, PAGE, type Message, type MessageView} from './messages.js';
+import {albumRecords, messageRecords, PAGE, type Message, type MessageView} from './messages.js';
 import type {Cancellation} from './operations.js';
 import type {Chat, MessageRecord, TelegramApi} from './telegram.js';
 
@@ -126,18 +126,54 @@ export async function discussionThread(
   channel: Chat,
   group: Chat,
   postId: number,
-): Promise<DiscussionTarget> {
+  groupedId?: string,
+  task: Cancellation = {cancelled: false},
+): Promise<DiscussionTarget | undefined> {
   if (!client.api?.messages) throw new Error('This client cannot resolve post discussions.');
-  const response = await client.api.messages.getDiscussionMessage({
-    peer: getInputPeer(channel.entity),
-    msgId: postId,
-  });
-  const root = response.messages.find(
-    (record) =>
-      record.peerId && getPeerId(record.peerId) === group.id && forwardedPost(record, channel.id) === postId,
-  );
+  if (task.cancelled) return;
+  const sourceIds = new Set([postId]);
+  let threadPostId = postId;
+  if (groupedId) {
+    // Telegram albums contain at most ten consecutive messages. Read both
+    // sides so the thread owner need not be in the loaded page or Mine view.
+    const album = await albumRecords(client, channel, postId, groupedId);
+    if (task.cancelled) return;
+    for (const record of album) sourceIds.add(record.id);
+    // Captions can belong to any item; thread metadata identifies the owner.
+    threadPostId = (album.find((record) => record.replies) ?? album[0])?.id ?? postId;
+  }
+  let response;
+  try {
+    response = await client.api.messages.getDiscussionMessage({
+      peer: getInputPeer(channel.entity),
+      msgId: threadPostId,
+    });
+  } catch (error) {
+    // A removed/disabled discussion is an unavailable post, not a failed
+    // group read. In particular, it must never fall back to the entire group.
+    if (
+      error &&
+      typeof error === 'object' &&
+      'errorMessage' in error &&
+      error.errorMessage === 'MSG_ID_INVALID'
+    )
+      return;
+    throw error;
+  }
+  if (!response.messages.length) return;
+  // Album forwards have distinct group message IDs, but replies belong to the first
+  // item. Validate every candidate against the source channel and album.
+  const root = response.messages
+    .filter(
+      (record) =>
+        validId(record.id) &&
+        record.peerId &&
+        getPeerId(record.peerId) === group.id &&
+        sourceIds.has(forwardedPost(record, channel.id) ?? 0),
+    )
+    .sort((a, b) => a.id - b.id)[0];
   if (!root) throw new Error('No accessible discussion thread for this post.');
-  return {chat: group, postId, rootId: root.id};
+  return {chat: group, postId: forwardedPost(root, channel.id)!, rootId: root.id};
 }
 
 export async function fetchDiscussionPage(

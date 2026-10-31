@@ -7,7 +7,7 @@ import {
   type DiscussionContext,
 } from './discussions.js';
 import {appendPage, type History} from './operations.js';
-import {PAGE, type MessageView} from './messages.js';
+import {PAGE, type Message, type MessageView} from './messages.js';
 import {describeError} from './errors.js';
 
 type Pane = {
@@ -33,7 +33,7 @@ export function useDiscussion(
   client: TelegramApi,
   channel: Chat | undefined,
   selfId: string,
-  postId: number | undefined,
+  post: Message | undefined,
 ) {
   const [scope, setScope] = useState<'group' | 'post'>('group');
   const [view, setView] = useState<MessageView>('mine');
@@ -41,8 +41,9 @@ export function useDiscussion(
   const [stored, setStored] = useState<Pane>(() => empty(''));
   const sourceId = channel?.id;
   const entity = channel?.entity;
-  const selectedPostId = scope === 'post' ? postId : undefined;
-  const key = `${sourceId ?? ''}:${scope}:${selectedPostId ?? ''}:${view}:${revision}`;
+  const selectedPostId = scope === 'post' ? post?.id : undefined;
+  const groupedId = scope === 'post' ? post?.groupedId : undefined;
+  const key = `${sourceId ?? ''}:${scope}:${selectedPostId ?? ''}:${groupedId ?? ''}:${view}:${revision}`;
   const currentKey = useRef(key);
   currentKey.current = key;
   const cache = useRef(new Map<string, Pane>());
@@ -121,11 +122,20 @@ export function useDiscussion(
             }
             target =
               scope === 'post'
-                ? await discussionThread(client, channel, group, selectedPostId!)
+                ? await discussionThread(client, channel, group, selectedPostId!, groupedId, task)
                 : {chat: group};
             if (disposed || currentKey.current !== key) return;
             if (task.cancelled) {
               publish({...empty(key), status: 'stopped'});
+              return;
+            }
+            if (!target) {
+              publish({
+                ...empty(key),
+                status: 'ready',
+                error:
+                  'No accessible discussion for this post. Comments may be disabled or the discussion post removed.',
+              });
               return;
             }
             const items = await fetchDiscussionPage(
@@ -165,7 +175,20 @@ export function useDiscussion(
       task.cancelled = true;
       clearTimeout(timer);
     };
-  }, [client, sourceId, entity, channel, selfId, scope, selectedPostId, view, revision, key, labels]);
+  }, [
+    client,
+    sourceId,
+    entity,
+    channel,
+    selfId,
+    scope,
+    selectedPostId,
+    groupedId,
+    view,
+    revision,
+    key,
+    labels,
+  ]);
 
   const update = (change: (previous: Pane) => Pane) => {
     setStored((previous) =>

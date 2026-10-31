@@ -16,7 +16,7 @@ import {
   MEDIA_BYTES,
   type Attachment,
 } from '../src/media.js';
-import {messageRecords} from '../src/messages.js';
+import {messageRecords, messageRows} from '../src/messages.js';
 import {MessageDetails, previewRows} from '../src/MessageDetails.js';
 import {App} from './helpers/App.js';
 import {testTerminal} from './helpers/terminal.js';
@@ -261,6 +261,8 @@ test('details load previews, keep scrolling and only open a full attachment on i
   try {
     await ui.waitFor((frame) => frame.includes('Image preview') && frame.includes('o Open'));
     assert.deepEqual(requests, [true]);
+    await ui.press('p');
+    assert.deepEqual(requests, [true], 'successful previews cannot be reloaded with an undisplayed key');
     assert.equal(opened.length, 0);
     for (const columns of [25, 40, 120]) {
       await ui.resize(columns, 24);
@@ -272,6 +274,7 @@ test('details load previews, keep scrolling and only open a full attachment on i
     assert.equal(opened.length, 0);
     await ui.press('o');
     await ui.waitFor((frame) => frame.includes('System viewer launch requested'));
+    await ui.press('p');
     assert.deepEqual(requests, [true, false]);
     assert.equal(opened.length, 1);
   } finally {
@@ -279,6 +282,67 @@ test('details load previews, keep scrolling and only open a full attachment on i
     await rm(root, {recursive: true, force: true});
   }
 });
+
+for (const album of [false, true]) {
+  test(`failed ${album ? 'album-item' : 'single-item'} previews offer Retry preview only until a retry succeeds`, async () => {
+    const messages = messageRecords(
+      (album ? [5, 6] : [5]).map((id) => ({
+        id,
+        message: 'Synthetic caption',
+        media: photo(id),
+        ...(album ? {groupedId: returnBigInt(123)} : {}),
+      })),
+      '42',
+      'mine',
+    );
+    let attempts = 0;
+    let release!: () => void;
+    const ui = testTerminal(
+      <MessageDetails
+        message={messageRows(messages)[0]!}
+        client={{
+          async downloadMedia(_source, options) {
+            assert.ok(options.thumb, 'retry downloads only the thumbnail');
+            attempts++;
+            if (attempts === 1) throw new Error('Synthetic preview failure');
+            if (attempts === 2)
+              await new Promise<void>((resolve) => {
+                release = resolve;
+              });
+            return image;
+          },
+        }}
+        width={159}
+        height={34}
+        onClose={() => {}}
+      />,
+      {columns: 160, rows: 35},
+    );
+    try {
+      await ui.waitFor((frame) => frame.includes('Preview unavailable') && frame.includes('p Retry preview'));
+      await ui.press('p');
+      await ui.waitFor((frame) => frame.includes('Loading preview'));
+      assert.ok(!ui.frame().includes('p Retry preview'));
+      await ui.press('p');
+      assert.equal(attempts, 2, 'a pending retry cannot start another download');
+      release();
+      await ui.waitFor((frame) => frame.includes('Image preview') && !frame.includes('Loading preview'));
+      assert.ok(!ui.frame().includes('p Retry preview'));
+      await ui.press('p');
+      assert.equal(attempts, 2);
+      if (album) {
+        await ui.press(']');
+        await ui.waitFor((frame) => frame.includes('Viewing item 2/2') && frame.includes('Image preview'));
+        assert.ok(!ui.frame().includes('p Retry preview'));
+        await ui.press('p');
+        assert.equal(attempts, 3, 'the next item loads automatically and has no stale retry action');
+      }
+    } finally {
+      release?.();
+      await ui.close();
+    }
+  });
+}
 
 test('closing message details aborts a preview and late completion cannot affect the restored app', async () => {
   let release!: () => void;

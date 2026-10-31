@@ -1,7 +1,7 @@
-import React, {useCallback, useEffect, useReducer, useRef, useState} from 'react';
+import React, {useCallback, useEffect, useMemo, useReducer, useRef, useState} from 'react';
 import {Box, useApp, useInput} from 'ink';
 import {adjustChatPercent, panelWidths, Panels, PanelHeader, Row, useTerminalSize} from './ui.js';
-import {fetchMessagePage, ownMessageIds} from './messages.js';
+import {fetchMessagePage, messageItems, messageRows, ownMessageIds} from './messages.js';
 import {footerShortcuts, legendRows, ShortcutLegend, type FooterState} from './Footer.js';
 import {boundedText, wrapText} from './text.js';
 import {describeError} from './errors.js';
@@ -66,9 +66,9 @@ export function App({
   const [state, dispatch] = useReducer(viewReducer, initialView);
   const {ownOnly} = state;
   const includePrivate = state.types.has('private') || state.types.has('bot');
-  const postMessages = state.history.items;
+  const postMessages = useMemo(() => messageRows(state.history.items), [state.history.items]);
   const headerMessageCount = useRef(100);
-  headerMessageCount.current = Math.max(headerMessageCount.current, postMessages.length);
+  headerMessageCount.current = Math.max(headerMessageCount.current, state.history.items.length);
   const ownOnlyRef = useRef(ownOnly);
   ownOnlyRef.current = ownOnly;
   const chats = visibleChats(state);
@@ -100,7 +100,7 @@ export function App({
   const dialogPager = useRef<ReturnType<typeof createDialogPager> | null>(null);
   const [chatsMore, setChatsMore] = useState(false);
   const [search, setSearch] = useState<{original: string} | null>(null);
-  const [detail, setDetail] = useState<Message | null>(null);
+  const [detail, setDetail] = useState<{message: Message; chat: Chat} | null>(null);
   const [retry, setRetry] = useState(0);
   const [refresh, setRefresh] = useState(0);
   const [rawFocus, setFocus] = useState<Focus>('chats');
@@ -111,14 +111,15 @@ export function App({
     client,
     active?.isBroadcast ? active : undefined,
     selfId,
-    postMessages[state.messageIndex]?.id,
+    postMessages[state.messageIndex],
   );
   const showDiscussion = Boolean(active?.isBroadcast && discussion.status !== 'none');
   const focus = rawFocus === 'discussion' && !showDiscussion ? 'messages' : rawFocus;
   const inDiscussion = focus === 'discussion';
   const working = inDiscussion ? discussion : state;
   const {view, history, messageIndex, selected} = working;
-  const messages = history.items;
+  const discussionMessages = useMemo(() => messageRows(discussion.history.items), [discussion.history.items]);
+  const messages = inDiscussion ? discussionMessages : postMessages;
   const hasMore = history.more;
   const targetChat = inDiscussion ? discussion.target?.chat : active;
   const focusedPane = inDiscussion ? ('discussion' as const) : ('messages' as const);
@@ -289,7 +290,9 @@ export function App({
 
   useEffect(() => {
     if (!active?.isBroadcast || !sourcePostKey || sourcePostId === undefined || postNavigationPaused) return;
-    const index = postMessages.findIndex((message) => message.id === sourcePostId);
+    const index = postMessages.findIndex((message) =>
+      messageItems(message).some((item) => item.id === sourcePostId),
+    );
     if (index !== -1) {
       if (index !== state.messageIndex) dispatch({type: 'index', index});
       return;
@@ -412,7 +415,7 @@ export function App({
     const chat = targetChat;
     const capturedView = view;
     setPrompt({kind: 'none'});
-    let loaded = messages.length;
+    let loaded = history.items.length;
     try {
       await loadMessageHistory(
         history,
@@ -524,7 +527,7 @@ export function App({
     ownCheck:
       progress?.label === 'Checking chats' ? (progress.cancelling ? 'stopping' : 'checking') : undefined,
     chats: state.chats.length,
-    messages: postMessages.length,
+    messages: state.history.items.length,
     reservedMessages: headerMessageCount.current,
     shortcuts: !progress && !search && !selectAllPrompt,
   });
@@ -721,7 +724,9 @@ export function App({
         cancelPostLookup.current?.();
         break;
       case 'sourcePost': {
-        const index = postMessages.findIndex((message) => message.id === sourcePostId);
+        const index = postMessages.findIndex((message) =>
+          messageItems(message).some((item) => item.id === sourcePostId),
+        );
         if (index !== -1) {
           dispatch({type: 'index', index});
           setFocus('messages');
@@ -776,7 +781,8 @@ export function App({
         void loadChats();
         break;
       case 'detail':
-        setDetail(messages[messageIndex] ?? null);
+        if (messages[messageIndex] && targetChat)
+          setDetail({message: messages[messageIndex], chat: {...targetChat}});
         break;
       case 'scan':
         void scanAll();
@@ -792,8 +798,12 @@ export function App({
           break;
         }
         const next = new Set(selected);
-        if (next.has(message.id)) next.delete(message.id);
-        else next.add(message.id);
+        const ids = ownMessageIds([message]);
+        const unmark = ids.every((id) => next.has(id));
+        for (const id of ids) {
+          if (unmark) next.delete(id);
+          else next.add(id);
+        }
         selectMessages(next);
         break;
       }
@@ -841,7 +851,9 @@ export function App({
   if (detail)
     return (
       <MessageDetails
-        message={detail}
+        message={detail.message}
+        chat={detail.chat}
+        selfId={selfId}
         client={client}
         files={mediaFiles}
         width={lineWidth}
@@ -992,7 +1004,7 @@ export function App({
                 showIds={Boolean(active?.isBroadcast)}
                 context={
                   showDiscussion
-                    ? `Posts: ${state.selected.size} selected · ${postMessages.length} loaded${compactPanes ? ' · Tab: Discussion' : ''}`
+                    ? `Posts: ${state.selected.size} selected · ${state.history.items.length} loaded${compactPanes ? ' · Tab: Discussion' : ''}`
                     : undefined
                 }
               />
@@ -1003,7 +1015,7 @@ export function App({
                 width={rightWidth}
                 height={compactPanes ? listHeight + 1 : discussionHeight}
                 active={inDiscussion}
-                items={discussion.history.items}
+                items={discussionMessages}
                 index={discussion.messageIndex}
                 selected={discussion.selected}
                 status={discussion.status}
@@ -1034,7 +1046,7 @@ export function App({
             width={Math.max(0, lineWidth - 2)}
             bold
             color="cyanBright"
-          >{`SELECT OWN: ${messages.length} messages are loaded.`}</Row>
+          >{`SELECT OWN: ${history.items.length} messages are loaded.`}</Row>
           <Row width={Math.max(0, lineWidth - 2)}>
             Load the rest of this view and select only your own messages?
           </Row>

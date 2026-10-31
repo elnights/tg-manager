@@ -1,7 +1,7 @@
 import React from 'react';
 import {Box} from 'ink';
 import {PanelHeader, Row} from './ui.js';
-import type {Message} from './messages.js';
+import {ownMessageIds, type Message} from './messages.js';
 
 export function MessagePane({
   title,
@@ -40,16 +40,18 @@ export function MessagePane({
       )}
       {items.slice(start, start + rows).map((message, offset) => {
         const current = start + offset === index;
-        const checked = selected.has(message.id);
+        const ids = ownMessageIds([message]);
+        const checked = ids.length > 0 && ids.every((id) => selected.has(id));
+        const partial = !checked && ids.some((id) => selected.has(id));
         return (
           <Row
-            key={message.id}
+            key={message.groupedId ? `album:${message.groupedId}` : message.id}
             width={width}
             bold={current && active}
             color={current && active ? 'black' : current ? 'yellowBright' : checked ? 'greenBright' : 'white'}
             backgroundColor={current && active ? 'yellowBright' : undefined}
           >
-            {`${current ? '>' : ' '} ${message.own ? (checked ? '[x]' : '[ ]') : '[-]'} ${showIds ? `#${message.id} ` : ''}${message.context ? `[${message.context}] ` : ''}${message.author}: ${message.date} ${message.content}${message.comments === undefined ? '' : ` · ${message.comments} comments`}`}
+            {`${current ? '>' : ' '} ${message.own ? (checked ? '[x]' : partial ? '[~]' : '[ ]') : '[-]'} ${showIds ? `#${message.id} ` : ''}${message.album ? `[Album: ${message.album.length} item${message.album.length === 1 ? '' : 's'}] ` : ''}${message.context ? `[${message.context}] ` : ''}${message.author}: ${message.date} ${message.content}${message.comments === undefined ? '' : ` · ${message.comments} comments`}`}
           </Row>
         );
       })}
