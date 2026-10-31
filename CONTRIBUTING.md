@@ -48,6 +48,8 @@ settings; `npm run preview:capture` regenerates the README SVG and a narrow prev
 Neither reads real sessions nor connects to Telegram.
 Add `-- --slow` to the synthetic preview to observe message loading, own-chat
 check progress and cancellation in the activity indicator.
+Add `-- --media` to inspect a synthetic photo with Tab then Enter; combine it
+with `--slow` to test cancelling a preview. Its system opener is disabled.
 
 See [Publishing](docs/publishing.md) for release preparation.
 Run [the local secret review](docs/security.md) before publishing changes.

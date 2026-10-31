@@ -88,7 +88,11 @@ test('the npm tarball installs a working CLI with production dependencies only',
     }
     run(
       process.execPath,
-      ['--input-type=module', '--eval', "await import('teleproto'); await import('qrcode-terminal');"],
+      [
+        '--input-type=module',
+        '--eval',
+        "await import('teleproto'); await import('qrcode-terminal'); await import('jpeg-js'); await import('open');",
+      ],
       install,
     );
     const terminalCLI = (args, inputKey) =>

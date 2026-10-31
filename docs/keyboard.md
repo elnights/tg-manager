@@ -106,6 +106,16 @@ Message and notice details wrap and scroll with arrows, j/k, Page Up/Down and
 Home/End; Esc or Enter closes them and restores focus. Selection, deletion, chat
 changes and other application commands are paused in these readers.
 
+Message details automatically load a small photo preview or an available
+video/document thumbnail. They use ordinary colour cells (monochrome characters
+without colour support), fitting and scrolling with the reader on every terminal.
+`p` retries a failed preview. `o` downloads and opens supported images, video,
+audio, PDF or plain text in the system viewer; it appears only when available.
+Neither browsing the list nor opening details downloads an original attachment.
+Esc/Enter closes details and cancels pending transfers; a viewer launch already
+started can finish. Metadata and captions remain readable without a thumbnail or
+desktop viewer. See [download limits and temporary files](storage.md#media-details).
+
 Toggling private chats preserves the active chat and selection if it remains
 visible. Hiding an active private chat selects the first visible group/channel
 and resets messages and marks.

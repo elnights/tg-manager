@@ -99,6 +99,15 @@ message, it drops out of the filtered list.
 Search covers loaded chat titles and IDs. Use `m` to load more chats and `R` to
 refresh the list. Other people's messages appear read-only (`[-]`) in All mode.
 
+Enter opens message details, including photo previews and available video/file
+thumbnails. Previews use terminal colour cells, with monochrome characters when
+colour is unavailable, so no particular terminal or native image tool is required.
+`p` retries a preview; `o` explicitly downloads supported media (up to 50 MiB) and
+opens the system viewer. On macOS, Linux and WSL this uses the platform's opener;
+a desktop viewer must be installed. If opening fails, details show the saved file
+path. Closing details cancels pending downloads and restores the message pane.
+See [media storage and limits](docs/storage.md#media-details).
+
 Each chat has a fixed type column: `[P]` private, `[B]` bot, `[G]` basic group,
 `[S]` supergroup/forum, `[C]` channel. Press `f` to choose any combination with
 Space; Enter applies, Esc cancels. `p` remains a shortcut for private chats and

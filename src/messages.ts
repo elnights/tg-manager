@@ -1,4 +1,5 @@
 import type {Entity, MessageRecord, TelegramApi} from './telegram.js';
+import {attachmentFor, type Attachment} from './media.js';
 
 export const PAGE = 100;
 export type MessageView = 'mine' | 'all';
@@ -11,6 +12,7 @@ export type Message = {
   context?: string;
   sourcePostId?: number;
   comments?: number;
+  attachment?: Attachment;
 };
 
 export async function hasOwnMessages(
@@ -70,6 +72,7 @@ export function messageRecords(
         content: message.message || (message.media ? '[media]' : '[service]'),
         own,
         author: own ? 'You' : authorName(message),
+        ...(message.media ? {attachment: attachmentFor(message)} : {}),
         ...(message.replies ? {comments: message.replies.replies} : {}),
       };
     });

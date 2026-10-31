@@ -10,9 +10,10 @@ import {Api} from 'teleproto';
 import {returnBigInt} from 'teleproto/Helpers.js';
 import {getPeerId} from 'teleproto/Utils.js';
 import type {MessageRecord} from '../src/telegram.js';
+import {photo, image} from '../test/helpers/media.js';
 
 // Public, synthetic fixtures only: no authentication, disk settings or sessions.
-function syntheticClient(channelMode = false, slow = false): TelegramApi {
+function syntheticClient(channelMode = false, slow = false, mediaMode = false): TelegramApi {
   const channel = new Api.Channel({
     id: returnBigInt(1000),
     accessHash: returnBigInt(123),
@@ -43,6 +44,7 @@ function syntheticClient(channelMode = false, slow = false): TelegramApi {
     message: index === 0 ? 'Synthetic general conversation' : `Synthetic comment ${index}`,
     ...(index === 0 ? {} : {replyTo: {replyToTopId: 1000 + 300 - (index % 3)}}),
   }));
+  if (mediaMode) records[1]!.media = photo();
   const root = (post: number): MessageRecord => ({
     id: 1000 + post,
     message: 'Forwarded channel post',
@@ -55,6 +57,10 @@ function syntheticClient(channelMode = false, slow = false): TelegramApi {
   const source = (entity: Parameters<TelegramApi['getMessages']>[0]) =>
     entity === group ? comments : records;
   return {
+    async downloadMedia() {
+      if (slow) await delay(600);
+      return image;
+    },
     api: {
       channels: {
         async getFullChannel() {
@@ -160,7 +166,16 @@ ${lines.map((line, index) => `<text x="12" y="${48 + index * 19}" xml:space="pre
   const stdout = new TerminalOutput(process.stdout);
   const instance = render(
     <App
-      client={syntheticClient(process.argv.includes('--channel'), process.argv.includes('--slow'))}
+      client={syntheticClient(
+        process.argv.includes('--channel'),
+        process.argv.includes('--slow'),
+        process.argv.includes('--media'),
+      )}
+      mediaFiles={{
+        open: async () => {
+          throw new Error('The synthetic preview does not open external applications.');
+        },
+      }}
       settings={settings}
     />,
     {

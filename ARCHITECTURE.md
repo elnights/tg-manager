@@ -19,6 +19,10 @@ package's allowlist.
 | Terminal text     | `src/ui.tsx`, `src/text.ts`, `src/terminal-output.ts`                                                                                         | Panel dimensions, grapheme-safe rows/wrapping and physical terminal-cell repair                                                       |
 | Storage           | `src/session.ts`, `src/settings.ts`                                                                                                           | Private session storage/migration and injectable layout settings                                                                      |
 
+`src/media.ts` handles attachment metadata, bounded downloads, JPEG decoding and
+private temporary viewer files. `src/MessageDetails.tsx` owns detail-view transfers
+and portable image rows; `src/Reader.tsx` owns their scrolling and advertised keys.
+
 Keep the Ink/React/TypeScript app small. Share related behavior at these existing
 boundaries before introducing another abstraction or runtime dependency. The
 package exposes a CLI, with no supported programmatic API.
@@ -89,6 +93,16 @@ package exposes a CLI, with no supported programmatic API.
 
 ### Operations and cancellation
 
+- Media comes from the captured message object, including the correct discussion
+  peer; never cache attachments by bare message ID. Only details request bounded
+  thumbnails, and originals require an explicit reader action. Abort and discard
+  late results on close. Limit transfer bytes and decoder memory/resolution.
+  Use ordinary terminal cells, with monochrome fallback, so resizing and clearing
+  remain inside Ink. Native graphics protocols and external decoders are unnecessary.
+- Viewer files use a private temporary directory and generated MIME-based names,
+  never Telegram-provided paths or executable extensions. Opening is injected in
+  tests. Retain explicitly opened files for asynchronous viewers, show their path
+  if opening fails, and keep them outside session storage and the repository.
 - `useOperation.begin()` guards duplicates synchronously with a ref. Finish every
   task in cleanup/finally, and check `task.active` before publishing asynchronous
   results. Message results also carry their chat ID and view into the reducer.

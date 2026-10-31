@@ -49,6 +49,8 @@
   "dependencies": {
     "ansi-regex": "^6.5.0",
     "ink": "^8.0.0",
+    "jpeg-js": "^0.4.4",
+    "open": "^11.0.4",
     "qrcode-terminal": "^0.12.0",
     "react": "^19.3.1",
     "string-width": "^8.3.0",

@@ -11,6 +11,8 @@ import {TypeFilter, viewOptionLines} from './ViewOptions.js';
 import {ActivityHeader, StatusBar, useNotice} from './StatusBar.js';
 import {useOperation} from './useOperation.js';
 import {Reader} from './Reader.js';
+import {MessageDetails} from './MessageDetails.js';
+import type {MediaFiles} from './media.js';
 import {Confirmation, confirmationLines} from './Confirmation.js';
 import {
   accountIdentity,
@@ -50,7 +52,15 @@ type Prompt =
     };
 type Initialization = 'loading' | 'ready' | 'error';
 
-export function App({client, settings = settingsStore}: {client: TelegramApi; settings?: SettingsStore}) {
+export function App({
+  client,
+  settings = settingsStore,
+  mediaFiles,
+}: {
+  client: TelegramApi;
+  settings?: SettingsStore;
+  mediaFiles?: MediaFiles;
+}) {
   const {exit} = useApp();
   const size = useTerminalSize();
   const [state, dispatch] = useReducer(viewReducer, initialView);
@@ -830,9 +840,10 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
   );
   if (detail)
     return (
-      <Reader
-        title={`MESSAGE ${detail.id} · Read only`}
-        text={`${detail.context ? detail.context + '\n' : ''}${detail.author} · ${detail.date}\n${detail.content}`}
+      <MessageDetails
+        message={detail}
+        client={client}
+        files={mediaFiles}
         width={lineWidth}
         height={height}
         onClose={() => setDetail(null)}

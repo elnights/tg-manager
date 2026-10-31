@@ -16,6 +16,7 @@ import {checkOwnChats} from '../src/dialogs.js';
 import {fetchDiscussionPage, discussionThread} from '../src/discussions.js';
 import {App} from './helpers/App.js';
 import {testTerminal} from './helpers/terminal.js';
+import {photo, image} from './helpers/media.js';
 
 function fixture({joined = false, count = 2, ownPost = true, general = true} = {}) {
   const channel = new Api.Channel({
@@ -352,6 +353,36 @@ test('entire-group navigation preserves discussion marks and ignores the highlig
     assert.ok(ui.frame().includes('DISCUSSION · Entire group') && ui.frame().includes('[x] [Post #300]'));
     assert.equal(mock.calls.reads.length, reads);
     assert.equal(mock.calls.threads.length, 0);
+  } finally {
+    await ui.close();
+  }
+});
+
+test('media details use the captured post or discussion attachment when their message IDs overlap', async () => {
+  const mock = fixture();
+  mock.records.get(mock.channelId)![0]!.media = photo(100);
+  mock.records.get(mock.groupId)![0]!.media = photo(200);
+  const downloaded: string[] = [];
+  const client: TelegramApi = {
+    ...mock.client,
+    async downloadMedia(media) {
+      assert.ok(media instanceof Api.MessageMediaPhoto && media.photo instanceof Api.Photo);
+      downloaded.push(media.photo.id.toString());
+      return image;
+    },
+  };
+  const ui = testTerminal(<App client={client} />);
+  try {
+    await ready(ui);
+    await ui.press('\t');
+    await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('Image preview'));
+    await ui.press('\x1b');
+    await ui.press('\t');
+    await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('Image preview'));
+    assert.deepEqual(downloaded, ['100', '200']);
+    assert.equal(mock.calls.deletes.length, 0);
   } finally {
     await ui.close();
   }

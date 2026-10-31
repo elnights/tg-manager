@@ -4,6 +4,7 @@
 
 ### Added
 
+- Preview photos and available video/document thumbnails in message details with portable colour or monochrome cells; show attachment metadata and explicitly open supported originals in the system viewer.
 - Show an animated top-right activity indicator with operation counts and cancellation feedback; label own-message filtering while checks run.
 - Show chat-type badges and filter any combination of private chats, bots, basic groups, supergroups and channels.
 - Split channel posts and discussions into independent panes, with Mine/All filters and selected-post or entire-group scope, including general chat.

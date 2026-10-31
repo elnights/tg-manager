@@ -3,6 +3,7 @@ import {Api} from 'teleproto';
 import {getInputChannel, getPeerId} from 'teleproto/Utils.js';
 import type {EntityLike} from 'teleproto/define.js';
 import type {ApiCredentials, QrCodeAuthParams} from 'teleproto/client/methods/auth.js';
+import type {DownloadMediaInterface} from 'teleproto/client/methods/downloads.js';
 
 export type Entity = EntityLike;
 type Identifier = {toString(): string};
@@ -39,6 +40,10 @@ export type MessageOptions = {
   topMsgId?: number;
 };
 export interface TelegramApi {
+  downloadMedia?(
+    media: Api.Message | Api.TypeMessageMedia,
+    options: Pick<DownloadMediaInterface, 'thumb' | 'signal' | 'progressCallback'>,
+  ): Promise<Buffer | string | undefined>;
   api?: {
     channels: {
       getFullChannel(options: {channel: Api.TypeInputChannel}): Promise<{

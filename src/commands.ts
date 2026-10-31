@@ -454,9 +454,18 @@ const scrollBindings: Binding[] = [
   {id: 'page', key: 'PgUp/PgDn', label: 'Page', keys: ['pageUp', 'pageDown']},
   {id: 'ends', key: 'Home/End', label: 'Ends', keys: ['home', 'end']},
 ];
-export function readerBindings(help: boolean, canScroll = true): Binding[] {
+export type ReaderMedia = {preview: boolean; open: boolean; busy: boolean};
+export function readerBindings(help: boolean, canScroll = true, media?: ReaderMedia): Binding[] {
   return [
     ...(canScroll ? scrollBindings.filter((binding) => !help || binding.id !== 'ends') : []),
+    ...(!help && media && !media.busy
+      ? [
+          ...(media.preview ? [{id: 'mediaPreview', key: 'p', label: 'Preview', chars: ['p']}] : []),
+          ...(media.open
+            ? [{id: 'mediaOpen', key: 'o', label: 'Open media', compactLabel: 'Open', chars: ['o']}]
+            : []),
+        ]
+      : []),
     {
       id: 'close',
       key: help ? 'Esc/?' : 'Esc/Enter',
@@ -467,9 +476,15 @@ export function readerBindings(help: boolean, canScroll = true): Binding[] {
     interrupt,
   ];
 }
-export function readerCommand(input: string, key: Key, help: boolean, canScroll = true): string | undefined {
+export function readerCommand(
+  input: string,
+  key: Key,
+  help: boolean,
+  canScroll = true,
+  media?: ReaderMedia,
+): string | undefined {
   if (key.ctrl || key.meta) return;
-  return readerBindings(help, canScroll).find((binding) => matches(binding, input, key))?.id;
+  return readerBindings(help, canScroll, media).find((binding) => matches(binding, input, key))?.id;
 }
 
 export const filterBindings: Binding[] = [
@@ -505,6 +520,10 @@ export const helpSections = (
       ? [
           ['Ctrl+C', 'Quit anytime; completed requests are not undone'],
           ['? / Esc', 'Close help; ↑↓ or j/k scroll help'],
+          [
+            'p / o in details',
+            'Retry the media preview / download and open supported media in the system viewer',
+          ],
         ]
       : []),
     ...(title === 'Message selection'

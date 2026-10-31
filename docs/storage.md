@@ -42,7 +42,7 @@ Development tests use synthetic temporary files and never access real sessions.
   accepts environment variables or an explicitly supplied credentials file.
 - Chats load in pages of up to 100; press `m` for more. Search covers loaded chats.
   Message pages contain up to 100 messages; Enter opens the full text preview.
-  Media is not downloaded. Large histories stay in memory.
+  Only opening message details fetches bounded image thumbnails. Large histories stay in memory.
 - Only messages recognized as yours can be marked or deleted. Anonymous
   administrator or channel-as-sender posts may not be recognized as yours.
 - Telegram permissions and rate limits can interrupt operations. Cancellation
@@ -50,3 +50,24 @@ Development tests use synthetic temporary files and never access real sessions.
 - User permissions do not protect against another process running as the same
   user, and underlying filesystems must support private permissions and atomic
   rename/hard-link operations for the storage guarantees.
+
+## Media details
+
+Photo previews and available video/document thumbnails are JPEG images downloaded
+into memory only. Previews are limited to 1 MiB and decoding to 2 megapixels / an
+approximate 32 MiB decoder budget. No native image programs, platform binaries or
+terminal graphics protocol are required. Unsupported or missing thumbnails leave
+captions and attachment metadata readable. There is no inline video/audio playback.
+
+Pressing `o` explicitly downloads a supported original, up to 50 MiB, into a new
+`tg-manager-media-*` directory under the operating system's temporary directory.
+Directories use `0700` and files `0600` where supported. Generated filenames use
+known media extensions; attachment-provided paths and executable suffixes are
+never used. The platform's default viewer handles these files, including WSL's
+Windows opener when available. Headless systems retain a usable saved-file path.
+
+Explicitly opened files remain in their private temporary directories so viewers
+can read them after details close. Remove them yourself when finished, or let the
+OS clean its temporary directory. Cancelling before launch removes an incomplete
+temporary file. Previews are released when details close; media is never stored
+in the repository or the session directory.
