@@ -1,26 +1,50 @@
-import {chatsFromDialogs, type Chat, type DialogRecord} from './telegram.js';
+import {chatsFromDialogs, discussionChat, mergeChats, type Chat, type DialogRecord} from './telegram.js';
 import type {Cancellation} from './operations.js';
 import {hasOwnMessages} from './messages.js';
 import type {TelegramApi} from './telegram.js';
 
 export async function checkOwnChats(
-  client: Pick<TelegramApi, 'getMessages'>,
+  client: Pick<TelegramApi, 'getMessages' | 'api'>,
   chats: readonly Chat[],
   task: Cancellation,
   update: (checked: number, total: number) => void,
-): Promise<{ids: Set<string>; complete: boolean; failure?: unknown}> {
+): Promise<{ids: Set<string>; chats: Chat[]; complete: boolean; failure?: unknown}> {
   const ids = new Set<string>();
+  const found = mergeChats(chats);
+  const probes = new Map<string, boolean>();
+  const probe = async (chat: Chat) => {
+    if (!probes.has(chat.id)) probes.set(chat.id, await hasOwnMessages(client, chat.entity));
+    return probes.get(chat.id)!;
+  };
   let checked = 0;
   try {
-    for (const chat of chats) {
+    for (const chat of found) {
       if (task.cancelled) break;
-      if (await hasOwnMessages(client, chat.entity)) ids.add(chat.id);
-      update(++checked, chats.length);
+      let own = await probe(chat);
+      if (!own && chat.isBroadcast && !task.cancelled) {
+        const discussion = await discussionChat(client, chat);
+        if (discussion && !task.cancelled) own = await probe(discussion);
+      }
+      if (own) ids.add(chat.id);
+      update(++checked, found.length);
     }
-    return {ids, complete: checked === chats.length && !task.cancelled};
+    return {ids, chats: found, complete: checked === found.length && !task.cancelled};
   } catch (failure) {
-    return {ids, complete: false, failure};
+    return {ids, chats: found, complete: false, failure};
   }
+}
+
+export async function hasOwnChatMessages(
+  client: Pick<TelegramApi, 'getMessages' | 'api'>,
+  chat: Chat,
+  task: Cancellation,
+): Promise<boolean | undefined> {
+  if (await hasOwnMessages(client, chat.entity)) return true;
+  if (task.cancelled) return undefined;
+  if (!chat.isBroadcast) return false;
+  const group = await discussionChat(client, chat);
+  if (task.cancelled) return undefined;
+  return group ? hasOwnMessages(client, group.entity) : false;
 }
 
 export const DIALOG_PAGE = 100;

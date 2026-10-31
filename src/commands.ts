@@ -2,7 +2,7 @@ import type {Key} from 'ink';
 
 export type Shortcut = {key: string; label: string; compactLabel?: string};
 export type FooterState = {
-  focus: 'chats' | 'messages';
+  focus: 'chats' | 'messages' | 'discussion';
   busy: boolean;
   cancelling: boolean;
   confirm: boolean;
@@ -19,6 +19,10 @@ export type FooterState = {
   initialError?: boolean;
   chatsMore?: boolean;
   canInspect?: boolean;
+  hasDiscussion?: boolean;
+  backgroundLoading?: boolean;
+  canScan?: boolean;
+  canGoToPost?: boolean;
   hasNotice?: boolean;
   promptVisible?: boolean;
   confirmationText?: string;
@@ -40,7 +44,7 @@ type Command = Shortcut & {
   keys?: (keyof Key)[];
   available: (state: FooterState) => boolean;
 };
-const messages = (state: FooterState) => state.focus === 'messages';
+const messages = (state: FooterState) => state.focus !== 'chats';
 export const commands: Command[] = [
   {
     id: 'up',
@@ -79,13 +83,13 @@ export const commands: Command[] = [
     label: 'Switch panel',
     compactLabel: 'Panel',
     group: 'Navigation',
-    description: 'Switch panels',
+    description: 'Cycle panels; Shift+Tab / left arrow reverses',
     keys: ['tab', 'leftArrow', 'rightArrow'],
     available: () => true,
   },
   {
     id: 'private',
-    hint: 'view',
+    hint: 'help',
     key: 'p',
     label: 'Show/hide private',
     compactLabel: 'Private',
@@ -95,13 +99,24 @@ export const commands: Command[] = [
     available: () => true,
   },
   {
+    id: 'types',
+    hint: 'view',
+    key: 'f',
+    label: 'Chat types',
+    group: 'Chat management',
+    description:
+      'Choose any combination of private chats, bots, basic groups, supergroups and channels; Space toggles, Enter applies, Esc cancels',
+    chars: ['f'],
+    available: () => true,
+  },
+  {
     id: 'ownChats',
     hint: 'view',
     key: 'o',
     label: 'With my messages',
     group: 'Chat management',
     description:
-      'Show only loaded chats containing your own messages; Esc stops checks. New chat pages are checked too.',
+      'Find loaded chats and linked discussions containing your own messages; Esc stops checks. New chat pages are checked too.',
     chars: ['o'],
     available: () => true,
   },
@@ -136,6 +151,27 @@ export const commands: Command[] = [
     available: (state) => Boolean(state.chatsMore),
   },
   {
+    id: 'discussion',
+    key: 't',
+    label: 'Discussion scope',
+    compactLabel: 'Scope',
+    group: 'Chat management',
+    description: 'Discussion scope: entire linked group / highlighted channel post',
+    chars: ['t'],
+    available: (state) => Boolean(state.hasDiscussion),
+  },
+  {
+    id: 'sourcePost',
+    key: 'g',
+    label: 'Go to post',
+    compactLabel: 'Post',
+    group: 'Navigation',
+    description:
+      'Focus the current comment’s source channel post; load its page and show All posts when needed',
+    chars: ['g'],
+    available: (state) => state.focus === 'discussion' && Boolean(state.canGoToPost),
+  },
+  {
     id: 'detail',
     key: 'Enter',
     label: 'Inspect',
@@ -151,7 +187,7 @@ export const commands: Command[] = [
     label: 'Mine/All',
     compactLabel: 'View',
     group: 'Chat management',
-    description: 'Mine / All authors; reload and clear selection',
+    description: 'Mine / All authors in the focused message pane; clear its selection',
     chars: ['v'],
     available: () => true,
   },
@@ -213,7 +249,7 @@ export const commands: Command[] = [
     group: 'Deletion',
     description: 'Scan ALL own messages, then ask to delete',
     chars: ['A'],
-    available: (state) => state.hasChat,
+    available: (state) => state.hasChat && state.canScan !== false,
   },
   {
     id: 'next',
@@ -236,6 +272,16 @@ export const commands: Command[] = [
     available: (state) => messages(state) && state.hasMore && state.hasChat,
   },
   {
+    id: 'split',
+    hint: 'help',
+    key: '{ }',
+    label: 'Split height',
+    group: 'Layout and settings',
+    description: 'Reduce / increase the posts pane height; 0 resets the layout',
+    chars: ['{', '}'],
+    available: (state) => Boolean(state.hasDiscussion),
+  },
+  {
     id: 'width',
     hint: 'help',
     key: '[ ]',
@@ -253,7 +299,7 @@ export const commands: Command[] = [
     label: 'Reset width',
     compactLabel: 'Reset',
     group: 'Layout and settings',
-    description: 'Reset chat width to 32%',
+    description: 'Reset chat width to 32% and posts/discussion split to 50%',
     chars: ['0'],
     available: () => true,
   },
@@ -268,13 +314,23 @@ export const commands: Command[] = [
     available: () => true,
   },
   {
+    id: 'stopDiscussion',
+    key: 'Esc',
+    label: 'Stop background load',
+    compactLabel: 'Stop',
+    group: 'Loading and pagination',
+    description: 'Stop automatic discussion or source-post loading after the in-flight request',
+    keys: ['escape'],
+    available: (state) => Boolean(state.backgroundLoading),
+  },
+  {
     id: 'dismiss',
     key: 'Esc',
     label: 'Dismiss',
     group: 'Navigation',
     description: 'Dismiss an idle notice',
     keys: ['escape'],
-    available: (state) => Boolean(state.hasNotice),
+    available: (state) => Boolean(state.hasNotice) && !state.backgroundLoading,
   },
   {
     id: 'notice',
@@ -415,6 +471,20 @@ export function readerBindings(help: boolean, canScroll = true): Binding[] {
 export function readerCommand(input: string, key: Key, help: boolean, canScroll = true): string | undefined {
   if (key.ctrl || key.meta) return;
   return readerBindings(help, canScroll).find((binding) => matches(binding, input, key))?.id;
+}
+
+export const filterBindings: Binding[] = [
+  {id: 'up', key: '↑/k', label: 'Up', chars: ['k'], keys: ['upArrow']},
+  {id: 'down', key: '↓/j', label: 'Down', chars: ['j'], keys: ['downArrow']},
+  {id: 'toggle', key: 'Space', label: 'Toggle', chars: [' ']},
+  {id: 'apply', key: 'Enter', label: 'Apply', keys: ['return']},
+  {id: 'close', key: 'Esc', label: 'Cancel', keys: ['escape']},
+  helpBinding,
+  interrupt,
+];
+export function filterCommand(input: string, key: Key): string | undefined {
+  if (key.ctrl || key.meta) return;
+  return filterBindings.find((binding) => matches(binding, input, key))?.id;
 }
 
 export const helpSections = (

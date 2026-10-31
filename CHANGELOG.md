@@ -4,6 +4,9 @@
 
 ### Added
 
+- Show chat-type badges and filter any combination of private chats, bots, basic groups, supergroups and channels.
+- Split channel posts and discussions into independent panes, with Mine/All filters and selected-post or entire-group scope, including general chat.
+- Follow post highlights with debounced, cached thread loading and preserve correct deletion scope and peer identity.
 - Filter loaded chats to conversations containing your own messages, with cancellable checks and pagination support.
 
 - Search loaded chats, load more conversations, and refresh the chat list.
@@ -13,6 +16,11 @@
 - Contributor checks and a manual trusted-publishing workflow template.
 
 ### Fixed
+
+- Resolve comments through nested reply chains even when source posts are not loaded; incomplete context stays unavailable instead of being mislabeled General.
+
+- Keep the top header and chat-list viewport stable when switching chat types and resolving discussions.
+- Highlight a comment’s source post automatically and use `g` to focus it, including older posts outside the loaded page.
 
 - Require fully visible account, chat ID, message count and warnings before deletion.
 - Retry incorrect cloud passwords and stop pending login work on cancellation.

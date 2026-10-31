@@ -2,7 +2,16 @@ import type {Entity, MessageRecord, TelegramApi} from './telegram.js';
 
 export const PAGE = 100;
 export type MessageView = 'mine' | 'all';
-export type Message = {id: number; date: string; content: string; own: boolean; author: string};
+export type Message = {
+  id: number;
+  date: string;
+  content: string;
+  own: boolean;
+  author: string;
+  context?: string;
+  sourcePostId?: number;
+  comments?: number;
+};
 
 export async function hasOwnMessages(
   client: Pick<TelegramApi, 'getMessages'>,
@@ -37,8 +46,16 @@ export async function fetchMessagePage(
     offsetId,
     ...(view === 'mine' ? {fromUser: 'me'} : {}),
   });
+  return messageRecords(found, selfId, view);
+}
+
+export function messageRecords(
+  found: readonly (MessageRecord | undefined)[],
+  selfId: string,
+  view: MessageView,
+): Message[] {
   return found
-    .filter((message): message is MessageRecord => Boolean(message))
+    .filter((message): message is MessageRecord => Boolean(message && message.className !== 'MessageEmpty'))
     .map((message) => {
       // Telegram may omit from_id on outgoing private messages. Channel posts
       // can also be "outgoing", so that flag alone is not proof of authorship.
@@ -53,6 +70,7 @@ export async function fetchMessagePage(
         content: message.message || (message.media ? '[media]' : '[service]'),
         own,
         author: own ? 'You' : authorName(message),
+        ...(message.replies ? {comments: message.replies.replies} : {}),
       };
     });
 }

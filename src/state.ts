@@ -1,11 +1,13 @@
-import type {Chat} from './telegram.js';
+import {chatType, defaultChatTypes, type Chat, type ChatType} from './telegram.js';
 import type {Message, MessageView} from './messages.js';
 import type {History} from './operations.js';
 
 export type ViewState = {
   chats: Chat[];
   query: string;
-  includePrivate: boolean;
+  types: ReadonlySet<ChatType>;
+  postsView: MessageView;
+  chatView: MessageView;
   ownOnly: boolean;
   ownChatIds: ReadonlySet<string>;
   activeId?: string;
@@ -18,7 +20,9 @@ export type ViewState = {
 export const initialView: ViewState = {
   chats: [],
   query: '',
-  includePrivate: false,
+  types: defaultChatTypes,
+  postsView: 'all',
+  chatView: 'mine',
   ownOnly: false,
   ownChatIds: new Set(),
   view: 'mine',
@@ -30,14 +34,18 @@ export const initialView: ViewState = {
 export function visibleChats(state: ViewState): Chat[] {
   return state.chats.filter(
     (chat) =>
-      (state.includePrivate || !chat.isPrivate) &&
+      state.types.has(chatType(chat)) &&
       (!state.ownOnly || state.ownChatIds.has(chat.id)) &&
-      `${chat.title} ${chat.id}`.toLocaleLowerCase().includes(state.query.toLocaleLowerCase()),
+      `${chat.title} ${chat.id} ${chat.discussionFor ?? ''}`
+        .toLocaleLowerCase()
+        .includes(state.query.toLocaleLowerCase()),
   );
 }
 function clearMessages(state: ViewState): ViewState {
+  const broadcast = state.chats.find((chat) => chat.id === state.activeId)?.isBroadcast;
   return {
     ...state,
+    view: broadcast ? state.postsView : state.chatView,
     history: {items: [], cursor: 0, more: false},
     selected: new Set(),
     messageIndex: 0,
@@ -49,8 +57,11 @@ export type ViewAction =
   | {type: 'ownFilter'; enabled: boolean; ids?: ReadonlySet<string>}
   | {type: 'query'; query: string}
   | {type: 'private'}
+  | {type: 'types'; types: ReadonlySet<ChatType>}
   | {type: 'view'}
   | {type: 'reload'}
+  | {type: 'revalidate'}
+  | {type: 'locatedPost'; chatId: string; view: MessageView; postId: number; history: History}
   | {type: 'active'; id: string | undefined}
   | {
       type: 'history';
@@ -82,21 +93,59 @@ export function viewReducer(state: ViewState, action: ViewAction): ViewState {
       return activeId === state.activeId ? next : clearMessages({...next, activeId});
     }
     case 'query':
-    case 'private': {
+    case 'private':
+    case 'types': {
       const next =
         action.type === 'query'
           ? {...state, query: action.query}
-          : {...state, includePrivate: !state.includePrivate};
+          : {
+              ...state,
+              types:
+                action.type === 'types'
+                  ? action.types
+                  : new Set<ChatType>([
+                      ...[...state.types].filter((type) => type !== 'private' && type !== 'bot'),
+                      ...(state.types.has('private') || state.types.has('bot')
+                        ? []
+                        : (['private', 'bot'] as const)),
+                    ]),
+            };
       const chats = visibleChats(next);
       const activeId = chats.some((chat) => chat.id === state.activeId) ? state.activeId : chats[0]?.id;
       return activeId === state.activeId ? next : clearMessages({...next, activeId});
     }
     case 'active':
       return action.id === state.activeId ? state : clearMessages({...state, activeId: action.id});
-    case 'view':
-      return clearMessages({...state, view: state.view === 'mine' ? 'all' : 'mine'});
+    case 'view': {
+      const view = state.view === 'mine' ? 'all' : 'mine';
+      const broadcast = state.chats.find((chat) => chat.id === state.activeId)?.isBroadcast;
+      return clearMessages({...state, ...(broadcast ? {postsView: view} : {chatView: view})});
+    }
     case 'reload':
       return clearMessages(state);
+    case 'revalidate':
+      return {...state, messageStatus: state.activeId ? 'loading' : 'ready'};
+    case 'locatedPost': {
+      if (
+        action.chatId !== state.activeId ||
+        action.view !== state.view ||
+        !state.chats.find((chat) => chat.id === action.chatId)?.isBroadcast
+      )
+        return state;
+      const index = action.history.items.findIndex((message) => message.id === action.postId);
+      if (index === -1) return state;
+      const own = new Set(action.history.items.filter((message) => message.own).map((message) => message.id));
+      return {
+        ...state,
+        history: action.history,
+        view: 'all',
+        postsView: 'all',
+        messageStatus: 'ready',
+        messageIndex: index,
+        selected:
+          state.view === 'mine' ? new Set() : new Set([...state.selected].filter((id) => own.has(id))),
+      };
+    }
     case 'failed':
       return action.chatId === state.activeId && action.view === state.view
         ? {...state, messageStatus: 'error'}

@@ -42,6 +42,8 @@ test('every active binding survives label shortening and wrapping in either pane
     {busy: true, cancelling: true},
     {hasNotice: true},
     {chatsMore: true, canInspect: true},
+    {hasDiscussion: true},
+    {hasDiscussion: true, canGoToPost: true},
     {searching: true},
     {initialError: true, hasChat: false},
     {confirm: true},
@@ -50,7 +52,7 @@ test('every active binding survives label shortening and wrapping in either pane
     {selectPrompt: true},
     {selectPrompt: true, promptVisible: false},
   ];
-  for (const focus of ['chats', 'messages'] as const)
+  for (const focus of ['chats', 'messages', 'discussion'] as const)
     for (const mode of modes)
       for (const width of [12, 24, 39, 59, 79, 119, 199, 299]) {
         const state = {...footerState, ...mode, focus};
@@ -125,15 +127,16 @@ test('view options show exact counts separately from actions at wide and narrow 
         const lines = viewOptionLines(width, {view, includePrivate, chats: 205, messages: 100});
         const text = lines.join(' ');
         assert.ok(text.includes(view === 'mine' ? 'Mine [v]' : 'All [v]'));
-        assert.ok(text.includes(`Private: ${includePrivate ? 'on' : 'off'} [p]`));
+        assert.ok(text.includes(`Types: ${includePrivate ? 'P B G S C' : 'G S C'} [f]`));
         assert.ok(text.includes(`With my messages${width < 30 ? ' ' : ': '}off [o]`));
         assert.ok(text.includes('205 chats') && text.includes('100 msgs'));
         assert.ok(!text.includes('100+'));
         assert.ok(lines.every((line) => stringWidth(line) <= width));
       }
   const keys = footerShortcuts(footerState).map((item) => item.key);
-  for (const key of ['p', 'v', 'o', '[ ]', '0', 'PgUp/PgDn', 'Home/End']) assert.ok(!keys.includes(key));
+  for (const key of ['f', 'p', 'v', 'o', '[ ]', '0', 'PgUp/PgDn', 'Home/End']) assert.ok(!keys.includes(key));
   for (const [input, id] of [
+    ['f', 'types'],
     ['p', 'private'],
     ['v', 'view'],
     ['o', 'ownChats'],
@@ -148,6 +151,17 @@ test('view options show exact counts separately from actions at wide and narrow 
         section.entries.some(([key]) => key === (command.reference ?? command.key)),
       ),
     );
+});
+
+test('view-strip height remains constant across author views, loading counts and disabled hints', () => {
+  for (const width of [24, 39, 59, 79, 99, 119, 199]) {
+    const options = {includePrivate: true, chats: 205, reservedMessages: 10000};
+    const rows = viewOptionLines(width, {...options, messages: 10000, view: 'mine'}).length;
+    for (const view of ['mine', 'all'] as const)
+      for (const messages of [0, 1, 100, 10000])
+        for (const shortcuts of [true, false])
+          assert.equal(viewOptionLines(width, {...options, view, messages, shortcuts}).length, rows);
+  }
 });
 
 function deferred<T>() {

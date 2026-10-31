@@ -56,9 +56,15 @@ export async function scanOwnMessages(
   entity: Entity,
   task: Cancellation,
   update: (count: number) => void,
+  topMsgId?: number,
 ): Promise<number[]> {
   const ids = new Set<number>();
-  const iterator = client.iterMessages(entity, {fromUser: 'me', limit: undefined})[Symbol.asyncIterator]();
+  const source = client.iterMessages(entity, {
+    fromUser: 'me',
+    limit: undefined,
+    ...(topMsgId === undefined ? {} : {topMsgId}),
+  });
+  const iterator = source[Symbol.asyncIterator]();
   try {
     // Check before requesting another item: iterator.next() can start an RPC.
     while (!task.cancelled) {

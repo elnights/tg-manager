@@ -553,14 +553,14 @@ test('the footer changes with focus, selection and width while remaining on the 
   try {
     await ui.waitFor((frame) => frame.includes('/ 2 msgs'));
     assert.ok(!footer().split(/\s+/).includes('p'));
-    assert.ok(ui.frame().includes('Private: off [p]'));
+    assert.ok(ui.frame().includes('Types: G S C [f]'));
     assert.match(footer(), /\?(?: |$)/);
     assert.match(footer(), /(?:^| )A(?: |$)/);
     assert.ok(!footer().split(/\s+/).includes('c'));
     await ui.press('\t');
     assert.match(footer(), /(?:^| )Space(?: |$)/);
     assert.ok(!footer().split(/\s+/).includes('p'));
-    assert.ok(ui.frame().includes('Private: off [p]'));
+    assert.ok(ui.frame().includes('Types: G S C [f]'));
     assert.ok(!footer().includes('[ ]') && !footer().split(/\s+/).includes('0'));
     assert.ok(!footer().split(/\s+/).includes('d'));
     await ui.press(' ');

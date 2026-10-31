@@ -5,25 +5,25 @@
 <text x="12" y="22" fill="#67e8f9">SYNTHETIC UI · 100×24 · OFFLINE</text>
 <text x="12" y="48" xml:space="preserve">TG MANAGER / Weekend project</text>
 <text x="12" y="67" xml:space="preserve">Account: Synthetic account (ID 42)</text>
-<text x="12" y="86" xml:space="preserve">Mine [v] · Private: off [p] · With my messages: off [o] · Loaded: 100 chats / 100 msgs</text>
+<text x="12" y="86" xml:space="preserve">Mine [v] · Types: G S C [f] · With my messages: off [o] · Loaded: 100 chats / 100 msgs</text>
 <text x="12" y="105" xml:space="preserve">[ACTIVE] GROUPS/CHANNELS       |[ ] MESSAGES</text>
-<text x="12" y="124" xml:space="preserve">&gt; Weekend project              |&gt; [ ] You: Synthetic planning message 1</text>
-<text x="12" y="143" xml:space="preserve"> Synthetic group 1             | [ ] You: Synthetic planning message 2</text>
-<text x="12" y="162" xml:space="preserve"> Synthetic group 2             | [ ] You: Synthetic planning message 4</text>
-<text x="12" y="181" xml:space="preserve"> Synthetic group 3             | [ ] You: Synthetic planning message 5</text>
-<text x="12" y="200" xml:space="preserve"> Synthetic group 4             | [ ] You: Synthetic planning message 7</text>
-<text x="12" y="219" xml:space="preserve"> Synthetic group 5             | [ ] You: Synthetic planning message 8</text>
-<text x="12" y="238" xml:space="preserve"> Synthetic group 6             | [ ] You: Synthetic planning message 10</text>
-<text x="12" y="257" xml:space="preserve"> Synthetic group 7             | [ ] You: Synthetic planning message 11</text>
-<text x="12" y="276" xml:space="preserve"> Synthetic group 8             | [ ] You: Synthetic planning message 13</text>
-<text x="12" y="295" xml:space="preserve"> Synthetic group 9             | [ ] You: Synthetic planning message 14</text>
-<text x="12" y="314" xml:space="preserve"> Synthetic group 10            | [ ] You: Synthetic planning message 16</text>
-<text x="12" y="333" xml:space="preserve"> Synthetic group 11            | [ ] You: Synthetic planning message 17</text>
-<text x="12" y="352" xml:space="preserve"> Synthetic group 12            | [ ] You: Synthetic planning message 19</text>
-<text x="12" y="371" xml:space="preserve"> Synthetic group 13            | [ ] You: Synthetic planning message 20</text>
-<text x="12" y="390" xml:space="preserve"> Synthetic group 14            | [ ] You: Synthetic planning message 22</text>
-<text x="12" y="409" xml:space="preserve"> Synthetic group 15            | [ ] You: Synthetic planning message 23</text>
-<text x="12" y="428" xml:space="preserve"> Synthetic group 16            | [ ] You: Synthetic planning message 25</text>
+<text x="12" y="124" xml:space="preserve">&gt; [G] Weekend project          |&gt; [ ] You: Synthetic planning message 1</text>
+<text x="12" y="143" xml:space="preserve"> [G]  Synthetic group 1        | [ ] You: Synthetic planning message 2</text>
+<text x="12" y="162" xml:space="preserve"> [G]  Synthetic group 2        | [ ] You: Synthetic planning message 4</text>
+<text x="12" y="181" xml:space="preserve"> [G]  Synthetic group 3        | [ ] You: Synthetic planning message 5</text>
+<text x="12" y="200" xml:space="preserve"> [G]  Synthetic group 4        | [ ] You: Synthetic planning message 7</text>
+<text x="12" y="219" xml:space="preserve"> [G]  Synthetic group 5        | [ ] You: Synthetic planning message 8</text>
+<text x="12" y="238" xml:space="preserve"> [G]  Synthetic group 6        | [ ] You: Synthetic planning message 10</text>
+<text x="12" y="257" xml:space="preserve"> [G]  Synthetic group 7        | [ ] You: Synthetic planning message 11</text>
+<text x="12" y="276" xml:space="preserve"> [G]  Synthetic group 8        | [ ] You: Synthetic planning message 13</text>
+<text x="12" y="295" xml:space="preserve"> [G]  Synthetic group 9        | [ ] You: Synthetic planning message 14</text>
+<text x="12" y="314" xml:space="preserve"> [G]  Synthetic group 10       | [ ] You: Synthetic planning message 16</text>
+<text x="12" y="333" xml:space="preserve"> [G]  Synthetic group 11       | [ ] You: Synthetic planning message 17</text>
+<text x="12" y="352" xml:space="preserve"> [G]  Synthetic group 12       | [ ] You: Synthetic planning message 19</text>
+<text x="12" y="371" xml:space="preserve"> [G]  Synthetic group 13       | [ ] You: Synthetic planning message 20</text>
+<text x="12" y="390" xml:space="preserve"> [G]  Synthetic group 14       | [ ] You: Synthetic planning message 22</text>
+<text x="12" y="409" xml:space="preserve"> [G]  Synthetic group 15       | [ ] You: Synthetic planning message 23</text>
+<text x="12" y="428" xml:space="preserve"> [G]  Synthetic group 16       | [ ] You: Synthetic planning message 25</text>
 <text x="12" y="447" xml:space="preserve">0 selected · More may be available · More chats may be available</text>
 <text x="12" y="466" xml:space="preserve">↑↓/jk Move Tab/←→ Panel / Search R Chats m More r Reload A Delete all q/Ctrl+C Quit ? Help</text>
 </g></svg>

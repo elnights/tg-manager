@@ -14,9 +14,9 @@ Text example (synthetic data):
 
 ```text
 TG MANAGER / Weekend project
-Mine [v] · Private: off [p] · With my messages: off [o] · Loaded: 100 chats / 100 msgs
+Mine [v] · Types: G S C [f] · With my messages: off [o] · Loaded: 100 chats / 100 msgs
 [ACTIVE] GROUPS/CHANNELS          MESSAGES
-> Weekend project                > [ ] You: Example message
+> [G] Weekend project            > [ ] You: Example message
 0 selected · More may be available · More chats may be available
 Tab/←→ Panel / Search R Chats m More r Reload A Delete all q/Ctrl+C ? Help
 ```
@@ -66,11 +66,13 @@ See [storage and migration](docs/storage.md) before moving an existing install.
 | `Tab`, `←`, `→`            | Switch panels                                                             |
 | `Page Up/Down`, `Home/End` | Page / first or last loaded item in either panel                          |
 | `/`, `R`, `m`              | Search loaded chats / refresh list / load more chats                      |
+| `g`                        | Focus the source post of the current discussion comment                   |
 | `Enter`                    | Inspect a message in a read-only scrolling view                           |
 | `r`, `!`                   | Reload messages or retry initialization / read notice details             |
-| `p`                        | Show / hide private chats                                                 |
+| `f`                        | Choose any combination of chat types                                      |
 | `o`                        | Show only loaded chats containing your own messages                       |
-| `v`                        | Switch Mine / All authors                                                 |
+| `v`                        | Switch Mine / All in the focused message pane                             |
+| `t`                        | Switch discussion scope: selected post / entire linked group              |
 | `Space`, `s`, `c`          | Mark one / select own / clear selection                                   |
 | `n`, **`L`**               | Load next page / remaining view                                           |
 | `d`                        | Confirm deletion of marked own messages                                   |
@@ -78,15 +80,16 @@ See [storage and migration](docs/storage.md) before moving an existing install.
 | `Esc`                      | Cancel a prompt, stop work after the current request, or dismiss an alert |
 | `q`, `Ctrl+C`              | Quit from the main view / anytime                                         |
 
-Keys are case-sensitive. The top strip shows Mine/All, private-chat visibility,
+Keys are case-sensitive. The top strip shows Mine/All, enabled chat types,
 and exact loaded chat/message counts. The footer shows actions; `?` opens the
 full reference, including layout and extended navigation controls. The bottom
 status row shows selection, progress and notices.
 “More may be available” means the next page has not been checked.
 
 Use `o` in the top view strip to show only chats containing your own messages.
-Enabling it checks each loaded chat with Telegram’s own-message filter; new chat
-pages are checked too. It works with Mine/All, private-chat visibility and search.
+Enabling it checks each loaded chat with Telegram’s own-message filter and
+discovers linked channel discussions, including groups absent from your dialogs.
+New chat pages are checked too. It works with Mine/All, chat-type filters and search.
 Escape stops checks. Failed or cancelled checks leave the filter off, retain loaded
 chats, and show a notice; press `o` to retry. After deleting a chat’s last own
 message, it drops out of the filtered list.
@@ -94,14 +97,58 @@ message, it drops out of the filtered list.
 Search covers loaded chat titles and IDs. Use `m` to load more chats and `R` to
 refresh the list. Other people's messages appear read-only (`[-]`) in All mode.
 
+Each chat has a fixed type column: `[P]` private, `[B]` bot, `[G]` basic group,
+`[S]` supergroup/forum, `[C]` channel. Press `f` to choose any combination with
+Space; Enter applies, Esc cancels. `p` remains a shortcut for private chats and
+bots. Type filtering composes with search and `o`; hiding groups does not hide a
+visible channel’s discussion pane.
+
+Channels automatically show **Posts** above **Discussion**. Posts default to
+All; the discussion defaults to **Entire group + Mine**, including general group
+conversation as well as channel-post comments. `t` switches to **Selected post**,
+which follows the highlighted post automatically, and back to Entire group.
+Each discussion row identifies its post, general chat, or unavailable context.
+Nested reply chains are resolved independently of the loaded Posts page.
+Unresolved context stays labeled Context unavailable and never hides an accessible message. The group need not appear
+in your dialogs, but Telegram must allow access; the app does not join it.
+
+Tab / Shift+Tab cycles Chats, Posts and Discussion. `v` changes All/Mine in the
+focused message pane; marks, pagination and deletion also belong to that pane.
+Moving the post highlight in Entire group mode leaves the discussion unchanged.
+Focusing a post comment highlights its source in Posts while keyboard focus stays
+in Discussion. `g` moves keyboard focus to that post. Older sources load their
+own page; Posts switches to All if needed, with authorship checked normally.
+General chat and unavailable context do not move the post highlight. `r` in Posts
+returns to the latest page after locating an older source.
+Changing thread or author view clears that discussion’s marks. Recent thread
+pages are cached; rapid navigation debounces requests and ignores late results.
+
+`A` scans your entire history in the focused scope: channel posts, one post’s
+thread, or the entire discussion group. The latter includes general chat.
+Confirmation identifies the real target group, source channel and thread/group
+scope. With a channel selected, focus a message pane before using `A`.
+`o` retains a channel if it has either your posts or your messages anywhere in
+its discussion group, including general conversation.
+
+`{` / `}` adjusts the vertical split; `0` resets it and the chat width.
+The top header and chat-list viewport stay the same height across chat types
+and discussion loading states. Channel counts and scope live in the pane headers.
+Short terminals show one right pane at a time; Tab changes panes and resizing
+restores the split without losing marks. Channels without linked discussions
+use the full message area for posts.
+
+![Synthetic channel view showing posts above the entire linked discussion group](assets/synthetic-channel.svg)
+
+Run `npm run preview:synthetic -- --channel` for this offline preview.
+
 ## Deletion safety
 
 **Deletion is irreversible** and can affect other participants. Both selected
 and entire-history deletion require typing exactly `DELETE` and pressing Enter.
 The confirmation shows your account, chat title and ID, deletion scope and exact
 count. Enlarge the terminal if the full confirmation cannot fit. Pasting `DELETE` still requires a separate Enter.
-Uppercase **`A`** scans all your messages in the active chat before asking for
-confirmation. It never deletes automatically.
+Uppercase **`A`** scans all your messages in the focused chat, thread or discussion
+group before asking for confirmation. It never deletes automatically.
 
 Progress separates accepted deletion requests from messages verified absent by
 ID. A failed request may still have taken effect; reload and verify before

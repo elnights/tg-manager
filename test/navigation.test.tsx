@@ -140,7 +140,18 @@ for (const columns of [80, 40, 25]) {
     const chatRows = (frame: string) =>
       frame.split('\n').flatMap((line, row) => {
         const divider = line.indexOf('|');
-        return divider < 0 ? [] : [{row, text: line.slice(0, divider).trim().replace(/^>\s*/, '')}];
+        return divider < 0
+          ? []
+          : [
+              {
+                row,
+                text: line
+                  .slice(0, divider)
+                  .trim()
+                  .replace(/^>\s*/, '')
+                  .replace(/^(\[[PB GSC]\])\s*/, '$1 '),
+              },
+            ];
       });
     try {
       await ui.waitFor((frame) => frame.includes('45 msgs') && !frame.includes('Loading history'));

@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1104" height="644" viewBox="0 0 1104 644">
+<title>Synthetic TG Manager: actual App render at 120 columns by 32 rows</title>
+<rect width="100%" height="100%" fill="#111827"/>
+<g fill="#e5e7eb" font-family="monospace" font-size="14">
+<text x="12" y="22" fill="#67e8f9">SYNTHETIC UI · 120×32 · OFFLINE</text>
+<text x="12" y="48" xml:space="preserve">TG MANAGER / Synthetic news</text>
+<text x="12" y="67" xml:space="preserve">Account: Synthetic account (ID 42)</text>
+<text x="12" y="86" xml:space="preserve">All [v] · Types: G S C [f] · With my messages: off [o] · Loaded: 100 chats / 100 msgs</text>
+<text x="12" y="105" xml:space="preserve">[ACTIVE] GROUPS/CHANNELS             |[ ] POSTS · All</text>
+<text x="12" y="124" xml:space="preserve">&gt; [C] Synthetic news                 |Posts: 0 selected · 100 loaded</text>
+<text x="12" y="143" xml:space="preserve"> [G]  Synthetic group 1              |&gt; [-] #300 Sender 99: Example message — inspect with Enter before marking.</text>
+<text x="12" y="162" xml:space="preserve"> [G]  Synthetic group 2              | [ ] #299 You: Synthetic planning message 1</text>
+<text x="12" y="181" xml:space="preserve"> [G]  Synthetic group 3              | [ ] #298 You: Synthetic planning message 2</text>
+<text x="12" y="200" xml:space="preserve"> [G]  Synthetic group 4              | [-] #297 Sender 99: Synthetic planning message 3</text>
+<text x="12" y="219" xml:space="preserve"> [G]  Synthetic group 5              | [ ] #296 You: Synthetic planning message 4</text>
+<text x="12" y="238" xml:space="preserve"> [G]  Synthetic group 6              | [ ] #295 You: Synthetic planning message 5</text>
+<text x="12" y="257" xml:space="preserve"> [G]  Synthetic group 7              | [-] #294 Sender 99: Synthetic planning message 6</text>
+<text x="12" y="276" xml:space="preserve"> [G]  Synthetic group 8              | [ ] #293 You: Synthetic planning message 7</text>
+<text x="12" y="295" xml:space="preserve"> [G]  Synthetic group 9              | [ ] #292 You: Synthetic planning message 8</text>
+<text x="12" y="314" xml:space="preserve"> [G]  Synthetic group 10             | [-] #291 Sender 99: Synthetic planning message 9</text>
+<text x="12" y="333" xml:space="preserve"> [G]  Synthetic group 11             | [ ] #290 You: Synthetic planning message 10</text>
+<text x="12" y="352" xml:space="preserve"> [G]  Synthetic group 12             |[ ] DISCUSSION · Entire group</text>
+<text x="12" y="371" xml:space="preserve"> [G]  Synthetic group 13             |Mine [v] · 100 loaded · 0 selected</text>
+<text x="12" y="390" xml:space="preserve"> [G]  Synthetic group 14             |&gt; [ ] [General] You: Synthetic general conversation</text>
+<text x="12" y="409" xml:space="preserve"> [G]  Synthetic group 15             | [ ] [Post #299] You: Synthetic comment 1</text>
+<text x="12" y="428" xml:space="preserve"> [G]  Synthetic group 16             | [ ] [Post #298] You: Synthetic comment 2</text>
+<text x="12" y="447" xml:space="preserve"> [G]  Synthetic group 17             | [ ] [Post #299] You: Synthetic comment 4</text>
+<text x="12" y="466" xml:space="preserve"> [G]  Synthetic group 18             | [ ] [Post #298] You: Synthetic comment 5</text>
+<text x="12" y="485" xml:space="preserve"> [G]  Synthetic group 19             | [ ] [Post #299] You: Synthetic comment 7</text>
+<text x="12" y="504" xml:space="preserve"> [G]  Synthetic group 20             | [ ] [Post #298] You: Synthetic comment 8</text>
+<text x="12" y="523" xml:space="preserve"> [G]  Synthetic group 21             | [ ] [Post #299] You: Synthetic comment 10</text>
+<text x="12" y="542" xml:space="preserve"> [G]  Synthetic group 22             | [ ] [Post #298] You: Synthetic comment 11</text>
+<text x="12" y="561" xml:space="preserve"> [G]  Synthetic group 23             | [ ] [Post #299] You: Synthetic comment 13</text>
+<text x="12" y="580" xml:space="preserve"> [G]  Synthetic group 24             | [ ] [Post #298] You: Synthetic comment 14</text>
+<text x="12" y="599" xml:space="preserve">0 selected · More may be available · More chats may be available</text>
+<text x="12" y="618" xml:space="preserve">↑↓/jk Move Tab/←→ Panel / Search R Chats m More t Scope r Reload q/Ctrl+C Quit ? Help</text>
+</g></svg>
