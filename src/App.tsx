@@ -11,7 +11,8 @@ import {TypeFilter, viewOptionLines} from './ViewOptions.js';
 import {ActivityHeader, StatusBar, useNotice} from './StatusBar.js';
 import {useOperation} from './useOperation.js';
 import {Reader} from './Reader.js';
-import {MessageDetails} from './MessageDetails.js';
+import {DiscussionDetails} from './DiscussionDetails.js';
+import {BrowseCache, BROWSE_DELAY} from './browseCache.js';
 import type {MediaFiles} from './media.js';
 import {Confirmation, confirmationLines} from './Confirmation.js';
 import {
@@ -62,6 +63,7 @@ export function App({
   mediaFiles?: MediaFiles;
 }) {
   const {exit} = useApp();
+  const cache = useMemo(() => new BrowseCache(client), [client]);
   const size = useTerminalSize();
   const [state, dispatch] = useReducer(viewReducer, initialView);
   const {ownOnly} = state;
@@ -112,6 +114,7 @@ export function App({
     active?.isBroadcast ? active : undefined,
     selfId,
     postMessages[state.messageIndex],
+    {cache},
   );
   const showDiscussion = Boolean(active?.isBroadcast && discussion.status !== 'none');
   const focus = rawFocus === 'discussion' && !showDiscussion ? 'messages' : rawFocus;
@@ -130,6 +133,10 @@ export function App({
     : undefined;
   const {progress, current: busyRef, begin, cancel} = useOperation();
   const {notice, notify, dismissNotice, resolveValidation} = useNotice();
+  const [automatic, setAutomatic] = useState<{label: string} | null>(null);
+  const cancelHistory = useRef<(() => void) | undefined>(undefined);
+  const immediateLoad = useRef(true);
+  const explicitBusy = Boolean(progress);
   const [helpOpen, setHelpOpen] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [prompt, setPrompt] = useState<Prompt>({kind: 'none'});
@@ -242,38 +249,76 @@ export function App({
     prompt.kind !== 'none' ||
     state.messageStatus !== 'ready',
   );
+  const historyKey = cache.key('messages', selfId, activeId, state.view);
+  const readPage = useCallback(
+    (chat: Chat, view: 'mine' | 'all', cursor: number, task: {readonly cancelled: boolean}) =>
+      cache.read(
+        cache.key('message-page', selfId, chat.id, view, cursor),
+        () => fetchMessagePage(client, chat.entity, selfId, view, cursor),
+        task,
+      ),
+    [cache, client, selfId],
+  );
   useEffect(() => {
-    if (!activeId || !activeEntity || !selfId || state.messageStatus !== 'loading') return;
-    const task = begin('Loading');
-    if (!task) return;
+    if (!activeId || !activeEntity || !selfId || state.messageStatus !== 'loading' || explicitBusy) return;
     let disposed = false;
-    void fetchMessagePage(client, activeEntity, selfId, state.view)
-      .then(async (items) => {
-        if (disposed || !task.active) return;
-        const hasOwn =
-          ownOnlyRef.current && !task.cancelled
-            ? items.some((message) => message.own) || (await hasOwnChatMessages(client, active!, task))
-            : undefined;
-        if (!disposed && task.active)
-          dispatch({
-            type: 'history',
-            chatId: activeId,
-            view: state.view,
-            history: appendPage({items: [], cursor: 0, more: true}, items),
-            hasOwn: task.cancelled ? undefined : hasOwn,
+    const task = {cancelled: false};
+    const saved = cache.history(historyKey);
+    if (saved) {
+      dispatch({
+        type: 'restore',
+        chatId: activeId,
+        view: state.view,
+        history: saved.history,
+        index: saved.index,
+      });
+      return;
+    }
+    const timer = setTimeout(
+      () => {
+        setAutomatic({label: 'Loading'});
+        void readPage(active!, state.view, 0, task)
+          .then(async (items) => {
+            if (disposed) return;
+            const hasOwn =
+              ownOnlyRef.current && !task.cancelled
+                ? items.some((message) => message.own) || (await hasOwnChatMessages(client, active!, task))
+                : undefined;
+            if (!disposed)
+              dispatch({
+                type: 'history',
+                chatId: activeId,
+                view: state.view,
+                history: appendPage({items: [], cursor: 0, more: true}, items),
+                hasOwn: task.cancelled ? undefined : hasOwn,
+              });
+          })
+          .catch((error) => {
+            if (!disposed) {
+              dispatch({type: 'failed', chatId: activeId, view: state.view});
+              if (!task.cancelled)
+                notify(`Loading failed: ${describeError(error)}. Press r to retry.`, 'error');
+            }
+          })
+          .finally(() => {
+            if (!disposed) setAutomatic(null);
           });
-      })
-      .catch((error) => {
-        if (!disposed && task.active) {
-          dispatch({type: 'failed', chatId: activeId, view: state.view});
-          notify(`Loading failed: ${describeError(error)}. Press r to retry.`, 'error');
-        }
-      })
-      .finally(task.finish);
+      },
+      immediateLoad.current ? 0 : BROWSE_DELAY,
+    );
+    immediateLoad.current = false;
+    cancelHistory.current = () => {
+      task.cancelled = true;
+      clearTimeout(timer);
+      setAutomatic(null);
+      dispatch({type: 'stopped', chatId: activeId, view: state.view});
+    };
     return () => {
       disposed = true;
       task.cancelled = true;
-      task.finish();
+      clearTimeout(timer);
+      cancelHistory.current = undefined;
+      setAutomatic(null);
     };
   }, [
     client,
@@ -282,11 +327,21 @@ export function App({
     selfId,
     state.view,
     state.messageStatus,
+    state.history,
     refresh,
-    begin,
     notify,
     active,
+    cache,
+    historyKey,
+    readPage,
+    explicitBusy,
   ]);
+  useEffect(() => {
+    if (activeId && state.messageStatus === 'ready') cache.save(historyKey, state.history);
+  }, [cache, historyKey, activeId, state.messageStatus, state.history]);
+  useEffect(() => {
+    if (state.messageStatus === 'ready') cache.position(historyKey, state.messageIndex);
+  }, [cache, historyKey, state.messageStatus, state.messageIndex, state.history]);
 
   useEffect(() => {
     if (!active?.isBroadcast || !sourcePostKey || sourcePostId === undefined || postNavigationPaused) return;
@@ -420,9 +475,7 @@ export function App({
       await loadMessageHistory(
         history,
         (cursor) =>
-          inDiscussion
-            ? discussion.fetch(cursor, task)
-            : fetchMessagePage(client, chat.entity, selfId, capturedView, cursor),
+          inDiscussion ? discussion.fetch(cursor, task) : readPage(chat, capturedView, cursor, task),
         task,
         (snapshot) => {
           loaded = snapshot.items.length;
@@ -486,6 +539,7 @@ export function App({
     if (!task) return;
     const {ids, chat} = confirm;
     resolveValidation();
+    cache.clear();
     setPrompt({kind: 'none'});
     try {
       const result = await deleteOwnMessages(client, {entity: chat.entity, ids}, task, (absent, result) => {
@@ -545,7 +599,10 @@ export function App({
     searching: Boolean(search),
     canInspect: Boolean(messages[messageIndex]),
     hasDiscussion: showDiscussion,
-    backgroundLoading: locatingPost || (showDiscussion && discussion.status === 'loading'),
+    backgroundLoading:
+      state.messageStatus === 'loading' ||
+      locatingPost ||
+      (showDiscussion && (discussion.status === 'loading' || discussion.status === 'waiting')),
     canGoToPost: sourcePostId !== undefined,
     canScan: inDiscussion
       ? discussion.status === 'ready' && Boolean(discussion.target)
@@ -721,6 +778,7 @@ export function App({
         break;
       case 'stopDiscussion':
         discussion.cancel();
+        cancelHistory.current?.();
         cancelPostLookup.current?.();
         break;
       case 'sourcePost': {
@@ -765,6 +823,8 @@ export function App({
         } else {
           if (inDiscussion) discussion.reload();
           else {
+            cache.clear();
+            immediateLoad.current = true;
             dispatch({type: 'reload'});
             setRefresh((value) => value + 1);
           }
@@ -833,6 +893,7 @@ export function App({
   const chatStart = Math.max(0, chatIndex - listHeight + 1);
   const activity =
     progress ??
+    automatic ??
     (locatingPost
       ? {label: `Locating post #${sourcePostId}`}
       : showDiscussion && discussion.status === 'loading'
@@ -850,7 +911,9 @@ export function App({
   );
   if (detail)
     return (
-      <MessageDetails
+      <DiscussionDetails
+        cache={cache}
+        filter={discussion}
         message={detail.message}
         chat={detail.chat}
         selfId={selfId}
@@ -1001,6 +1064,7 @@ export function App({
                 index={state.messageIndex}
                 selected={state.selected}
                 status={state.messageStatus}
+                empty={state.messageStatus === 'stopped' ? 'Stopped; r to retry' : undefined}
                 showIds={Boolean(active?.isBroadcast)}
                 context={
                   showDiscussion
@@ -1022,11 +1086,13 @@ export function App({
                 context={`${discussion.view === 'mine' ? 'Mine' : 'All'} [v] · ${discussion.history.items.length} loaded · ${discussion.selected.size} selected${compactPanes ? ' · Tab: Posts' : ''}`}
                 empty={
                   discussion.error ??
-                  (discussion.status === 'stopped'
-                    ? 'Stopped; r to retry'
-                    : discussion.status === 'none'
-                      ? 'No linked discussion group'
-                      : undefined)
+                  (discussion.status === 'waiting'
+                    ? 'Waiting for navigation…'
+                    : discussion.status === 'stopped'
+                      ? 'Stopped; r to retry'
+                      : discussion.status === 'none'
+                        ? 'No linked discussion group'
+                        : undefined)
                 }
               />
             )}

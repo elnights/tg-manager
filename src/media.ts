@@ -1,5 +1,6 @@
 import {Api} from 'teleproto';
 import jpeg from 'jpeg-js';
+import {strippedPhotoToJpg} from 'teleproto/Utils.js';
 import {chmod, mkdtemp, rm, writeFile} from 'node:fs/promises';
 import {tmpdir} from 'node:os';
 import path from 'node:path';
@@ -148,6 +149,23 @@ export async function downloadAttachment(
 
 export function decodePreview(data: Buffer): Raster {
   if (data.length > PREVIEW_BYTES) throw new Error('Preview exceeds the size limit.');
+  // Compact Telegram thumbnails carry dimensions and scan data, without a JPEG
+  // header. Some clients return these bytes directly instead of expanding them.
+  if (data.length >= 3 && data[0] === 1) data = strippedPhotoToJpg(data);
+  if (data.length > PREVIEW_BYTES) throw new Error('Expanded preview exceeds the size limit.');
+  if (data[0] !== 0xff || data[1] !== 0xd8) {
+    const format =
+      data.subarray(0, 4).toString() === 'RIFF' && data.subarray(8, 12).toString() === 'WEBP'
+        ? 'WebP'
+        : data.subarray(1, 4).toString() === 'PNG'
+          ? 'PNG'
+          : data.subarray(0, 3).toString() === 'GIF'
+            ? 'GIF'
+            : 'Unknown';
+    throw new Error(
+      `${format} thumbnail format is unsupported; a JPEG thumbnail is required. Use Open media when available.`,
+    );
+  }
   return jpeg.decode(data, {
     useTArray: true,
     formatAsRGBA: true,

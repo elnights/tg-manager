@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import {test} from 'node:test';
 import {setTimeout as delay} from 'node:timers/promises';
 import React from 'react';
+import {Text} from 'ink';
+import {BrowseCache} from '../src/browseCache.js';
+import {useDiscussion} from '../src/useDiscussion.js';
 import {Api} from 'teleproto';
 import {returnBigInt} from 'teleproto/Helpers.js';
 import {getPeerId} from 'teleproto/Utils.js';
@@ -1107,6 +1110,283 @@ test('short terminals show the focused right pane and resizing restores both wit
     await ui.resize(160, 35);
     assert.ok(ui.frame().includes('POSTS · All') && ui.frame().includes('DISCUSSION'));
     assert.ok(ui.frame().includes('[x] [Post #300]'));
+  } finally {
+    await ui.close();
+  }
+});
+
+test('post details place content left and comments right, share reads and author filtering, and restore post marks', async () => {
+  const mock = fixture();
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ready(ui);
+    await ui.press('\t');
+    await ui.press(' ');
+    await ui.press('t');
+    await ui.waitFor((frame) => frame.includes('My comment 0') && !frame.includes('Loading discussion'));
+    const requests = mock.calls.threads.length;
+    await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('COMMENTS') && frame.includes('My comment 0'));
+    assert.equal(mock.calls.threads.length, requests);
+    assert.ok(
+      ui
+        .frame()
+        .split('\n')
+        .some((line) => line.includes('Channel post') && line.indexOf('Channel post') < line.indexOf('│')),
+    );
+    assert.ok(
+      ui
+        .frame()
+        .split('\n')
+        .some((line) => line.includes('My comment 0') && line.indexOf('My comment 0') > line.indexOf('│')),
+    );
+    await ui.press('\t');
+    await ui.press('v');
+    await ui.waitFor((frame) => frame.includes('Other comment'));
+    assert.equal(mock.calls.threads.length, requests);
+    for (const key of [' ', 's', 'd', 'A', '/']) await ui.press(key);
+    assert.equal(mock.calls.deletes.length, 0);
+    assert.equal(mock.calls.scans.length, 0);
+    await ui.resize(40, 20);
+    assert.ok(ui.frame().includes('COMMENTS') && !ui.frame().includes('Channel post'));
+    await ui.press('\t');
+    assert.ok(ui.frame().includes('Channel post') && !ui.frame().includes('Other comment'));
+    await ui.press('\x1b');
+    await ui.resize(200, 30);
+    await ui.waitFor((frame) => frame.includes('All [v] · 2 loaded · 0 selected'));
+    assert.ok(ui.frame().includes('Posts: 1 selected'));
+  } finally {
+    await ui.close();
+  }
+});
+
+test('album details keep one cached discussion while changing preview items', async () => {
+  const mock = albumFixture();
+  mock.client.downloadMedia = async () => image;
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ready(ui);
+    await ui.press('\t');
+    await ui.press('t');
+    await ui.waitFor((frame) => frame.includes('My comment 0') && !frame.includes('Loading discussion'));
+    await ui.press('\t');
+    await ui.press('v');
+    await ui.waitFor((frame) => frame.includes('All [v] · 2 loaded · 0 selected'));
+    await ui.press('\x1b[Z');
+    const requests = mock.calls.threads.length;
+    const lookups = mock.calls.reads.filter(
+      (call) => call.options.ids && call.peer === mock.channelId,
+    ).length;
+    await ui.press('\r');
+    await ui.waitFor(
+      (frame) =>
+        frame.includes('COMMENTS') && frame.includes('My comment 0') && frame.includes('Image preview'),
+    );
+    await ui.press(']');
+    await ui.waitFor((frame) => frame.includes('Viewing item 2/3') && frame.includes('Image preview'));
+    await ui.press(']');
+    await ui.waitFor((frame) => frame.includes('Viewing item 3/3') && frame.includes('Image preview'));
+    assert.equal(mock.calls.threads.length, requests);
+    assert.equal(
+      mock.calls.reads.filter((call) => call.options.ids && call.peer === mock.channelId).length,
+      lookups,
+    );
+    assert.match(ui.frame(), /My comment 0/);
+    assert.ok(ui.frame().includes('All [v] · 2 loaded') && ui.frame().includes('Other comment'));
+    await ui.press('\x1b');
+    await ui.waitFor((frame) => frame.includes('All [v] · 2 loaded · 0 selected'));
+    assert.match(ui.frame(), /DISCUSSION · Post #302/);
+  } finally {
+    await ui.close();
+  }
+});
+
+test('leaving a channel before idle never starts linked-discussion discovery', async () => {
+  const mock = fixture({joined: true});
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ui.waitFor((frame) => frame.includes('Channel post'));
+    await ui.press('j');
+    await ui.waitFor((frame) => frame.includes('My general message'));
+    assert.equal(mock.calls.full.length, 0);
+    assert.match(ui.frame(), /TG MANAGER \/ Synthetic discussion/);
+  } finally {
+    await ui.close();
+  }
+});
+
+test('details distinguish empty Mine from All comments and unavailable threads never read the whole group', async () => {
+  const mock = fixture({count: 0});
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ui.waitFor(
+      (frame) => frame.includes('My general message') && !frame.includes('Loading discussion'),
+    );
+    await ui.press('\t');
+    await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('No comments from you.'));
+    await ui.press('\t');
+    await ui.press('v');
+    await ui.waitFor((frame) => frame.includes('Other comment'));
+    await ui.press('\x1b');
+    mock.client.api!.messages!.getDiscussionMessage = async () => ({
+      messages: [],
+      chats: [mock.channel, mock.group],
+    });
+    await ui.press('r');
+    await ui.waitFor((frame) => frame.includes('Channel post') && !frame.includes('Loading history'));
+    const reads = mock.calls.reads.length;
+    await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('No accessible discussion for this post.'));
+    assert.ok(mock.calls.reads.slice(reads).every((call) => call.peer !== mock.groupId));
+  } finally {
+    await ui.close();
+  }
+});
+
+test('changing details author view rejects a late pagination response', async () => {
+  const mock = fixture({count: 202});
+  let release!: () => void;
+  mock.controls.read = async (peer, options) => {
+    if (peer === mock.groupId && options.offsetId === 102 && options.topMsgId === 100)
+      await new Promise<void>((done) => {
+        release = done;
+      });
+  };
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ready(ui);
+    await ui.press('\t');
+    await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('COMMENTS') && frame.includes('Mine [v] · 100 loaded'));
+    await ui.press('\t');
+    await ui.press('n');
+    await ui.waitFor(() => typeof release === 'function');
+    await ui.press('v');
+    await ui.waitFor(
+      (frame) => frame.includes('All [v] · 100 loaded') && !frame.includes('Loading comments'),
+    );
+    release();
+    await delay(20);
+    assert.match(ui.frame(), /All \[v\] · 100 loaded/);
+    assert.ok(!ui.frame().includes('101 loaded'));
+  } finally {
+    release?.();
+    await ui.close();
+  }
+});
+
+test('a refreshed linked-group identity cannot inherit cached messages from the previous group', async () => {
+  const mock = fixture();
+  let now = 0;
+  const cache = new BrowseCache(mock.client, () => now);
+  const channel = chatsFromDialogs(mock.dialogs)[0]!;
+  function Pane() {
+    const discussion = useDiscussion(mock.client, channel, '42', undefined, {cache});
+    return (
+      <Text>
+        {discussion.target?.chat.id} {discussion.history.items.map((item) => item.content).join(' / ')}
+      </Text>
+    );
+  }
+  const first = testTerminal(<Pane />);
+  await first.waitFor((frame) => frame.includes('My comment 0'));
+  await first.close();
+  now = 30_000;
+  const key = cache.key('discussion', '42', mock.channelId, 'group', undefined, 'mine');
+  cache.save(key, {...cache.history(key)!.history}, cache.key(mock.groupId, undefined));
+  now = 60_001;
+  const next = new Api.Channel({
+    id: returnBigInt(201),
+    accessHash: returnBigInt(9),
+    title: 'New group',
+    megagroup: true,
+    photo: new Api.ChatPhotoEmpty(),
+    date: 0,
+  });
+  mock.controls.linkedId = '201';
+  mock.controls.chats = [mock.channel, next];
+  mock.records.set(getPeerId(next), [{id: 300, senderId: 42, message: 'New linked group message'}]);
+  const second = testTerminal(<Pane />);
+  try {
+    await second.waitFor((frame) => frame.includes('New linked group message'));
+    assert.ok(second.frame().includes(getPeerId(next)) && !second.frame().includes('My comment 0'));
+  } finally {
+    await second.close();
+  }
+});
+
+for (const scope of ['group', 'post'] as const) {
+  test(`main ${scope} discussion and post details share Mine/All filtering in both directions`, async () => {
+    const mock = fixture();
+    const ui = testTerminal(<App client={mock.client} />);
+    const scopeTitle = scope === 'group' ? 'DISCUSSION · Entire group' : 'DISCUSSION · Post #300';
+    const mineCount = scope === 'group' ? 3 : 1;
+    try {
+      await ready(ui);
+      await ui.press('\t');
+      await ui.press(' ');
+      await ui.press('\t');
+      if (scope === 'post') {
+        await ui.press('t');
+        await ui.waitFor((frame) => frame.includes('Mine [v] · 1 loaded · 0 selected'));
+      }
+      await ui.press('v');
+      await ui.waitFor((frame) => frame.includes('Other comment'));
+      await ui.press(' ');
+      assert.ok(ui.frame().includes('loaded · 1 selected'));
+      await ui.press('\x1b[Z');
+      await ui.press('\r');
+      await ui.waitFor((frame) => frame.includes('COMMENTS') && frame.includes('All [v] · 2 loaded'));
+      assert.match(ui.frame(), /Other comment/);
+      assert.ok(!ui.frame().includes('My general message'));
+      await ui.press('\t');
+      await ui.press('v');
+      await ui.waitFor((frame) => frame.includes('Mine [v] · 1 loaded'));
+      assert.ok(!ui.frame().includes('Other comment'));
+      await ui.press('\x1b');
+      await ui.waitFor((frame) => frame.includes(`Mine [v] · ${mineCount} loaded · 0 selected`));
+      assert.ok(ui.frame().includes(scopeTitle) && ui.frame().includes('Posts: 1 selected'));
+      assert.ok(!ui.frame().includes('Other comment'));
+      await ui.press('\t');
+      await ui.press('v');
+      await ui.waitFor((frame) => frame.includes('Other comment'));
+      await ui.press('\x1b[Z');
+      await ui.press('\r');
+      await ui.waitFor((frame) => frame.includes('COMMENTS') && frame.includes('All [v] · 2 loaded'));
+      assert.match(ui.frame(), /Other comment/);
+      await ui.press('\x1b');
+      await ui.waitFor((frame) => frame.includes(scopeTitle) && frame.includes('Other comment'));
+      assert.ok(ui.frame().includes('Posts: 1 selected'));
+      assert.equal(mock.calls.scans.length, 0);
+      assert.equal(mock.calls.deletes.length, 0);
+    } finally {
+      await ui.close();
+    }
+  });
+}
+
+test('rapid Mine/All changes in details clear discussion marks without restoring marks from a cached view', async () => {
+  const mock = fixture();
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ready(ui);
+    await ui.press('\t');
+    await ui.press(' ');
+    await ui.press('\t');
+    await ui.press(' ');
+    assert.ok(ui.frame().includes('Mine [v] · 3 loaded · 1 selected'));
+    await ui.press('\x1b[Z');
+    await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('COMMENTS') && frame.includes('Mine [v] · 1 loaded'));
+    await ui.press('\t');
+    await ui.press('v');
+    await ui.press('v');
+    await ui.waitFor((frame) => frame.includes('Mine [v] · 1 loaded'));
+    await ui.press('\x1b');
+    await ui.waitFor((frame) => frame.includes('Mine [v] · 3 loaded · 0 selected'));
+    assert.ok(ui.frame().includes('DISCUSSION · Entire group') && ui.frame().includes('Posts: 1 selected'));
+    assert.equal(mock.calls.deletes.length, 0);
   } finally {
     await ui.close();
   }

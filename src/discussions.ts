@@ -128,6 +128,7 @@ export async function discussionThread(
   postId: number,
   groupedId?: string,
   task: Cancellation = {cancelled: false},
+  resolveAlbum: typeof albumRecords = albumRecords,
 ): Promise<DiscussionTarget | undefined> {
   if (!client.api?.messages) throw new Error('This client cannot resolve post discussions.');
   if (task.cancelled) return;
@@ -136,7 +137,7 @@ export async function discussionThread(
   if (groupedId) {
     // Telegram albums contain at most ten consecutive messages. Read both
     // sides so the thread owner need not be in the loaded page or Mine view.
-    const album = await albumRecords(client, channel, postId, groupedId);
+    const album = await resolveAlbum(client, channel, postId, groupedId);
     if (task.cancelled) return;
     for (const record of album) sourceIds.add(record.id);
     // Captions can belong to any item; thread metadata identifies the owner.

@@ -48,6 +48,7 @@ test('confirmation shows captured account, duplicate-title ID, scope and exact c
   try {
     await ui.waitFor((frame) => frame.includes('/ 1 msgs'));
     await ui.press('\x1b[B');
+    await ui.waitFor((frame) => frame.includes('/ 1 msgs'));
     await ui.press('A');
     await ui.waitFor((frame) => frame.includes('Type DELETE'));
     assert.match(ui.frame(), /Account: Synthetic account \(ID 42\)/);

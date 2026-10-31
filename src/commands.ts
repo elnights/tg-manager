@@ -453,6 +453,29 @@ const scrollBindings: Binding[] = [
   {id: 'page', key: 'PgUp/PgDn', label: 'Page', keys: ['pageUp', 'pageDown']},
   {id: 'ends', key: 'Home/End', label: 'Ends', keys: ['home', 'end']},
 ];
+export function detailDiscussionBindings(comments: boolean, more: boolean, loading: boolean): Binding[] {
+  return [
+    {id: 'focus', key: 'Tab/←→', label: 'Switch pane', keys: ['tab', 'leftArrow', 'rightArrow']},
+    ...(comments
+      ? [
+          {id: 'view', key: 'v', label: 'Mine/All', chars: ['v']},
+          {id: 'reload', key: 'r', label: 'Reload comments', chars: ['r']},
+          ...(more && !loading ? [{id: 'next', key: 'n', label: 'More comments', chars: ['n']}] : []),
+        ]
+      : []),
+  ];
+}
+export function detailDiscussionCommand(
+  input: string,
+  key: Key,
+  comments: boolean,
+  more: boolean,
+  loading: boolean,
+) {
+  if (key.ctrl || key.meta) return;
+  return detailDiscussionBindings(comments, more, loading).find((binding) => matches(binding, input, key))
+    ?.id;
+}
 export type ReaderMedia = {
   preview: boolean;
   open: boolean;
@@ -533,6 +556,11 @@ export const helpSections = (
       ? [
           ['Ctrl+C', 'Quit anytime; completed requests are not undone'],
           ['? / Esc', 'Close help; ↑↓ or j/k scroll help'],
+          [
+            'Tab / ←→ in post details',
+            'Switch between post/album details on the left and comments on the right',
+          ],
+          ['v / n / r in comment details', 'Mine/All authors / next page / refresh; comments are read-only'],
           [
             'p / o in details',
             'Retry a failed preview (p appears only after failure) / download and open supported media in the system viewer',

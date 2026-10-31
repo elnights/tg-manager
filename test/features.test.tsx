@@ -125,6 +125,9 @@ test('API credential form supports pasted values, masks the hash and submits val
       'the API hash must never be rendered',
     );
     await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('Save API credentials'));
+    assert.equal(submitted, undefined);
+    await ui.press('n');
     assert.deepEqual(submitted, {apiId: 12345, apiHash: hash});
   } finally {
     await ui.close();
@@ -151,6 +154,8 @@ test('API credential form reports invalid fields and allows editing partial cred
     for (let i = 0; i < 3; i++) await ui.press('\x7f');
     await ui.press(hash);
     await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('Save API credentials'));
+    await ui.press('n');
     assert.deepEqual(submitted, {apiId: 12345, apiHash: hash});
   } finally {
     await ui.close();
@@ -274,7 +279,7 @@ test('all-authors view displays incoming messages but selection and deletion inc
   }
 });
 
-test('switching message views resets selection and restores the own-message server filter', async () => {
+test('switching views clears marks, restores cached own messages and refresh uses the server filter', async () => {
   const mock = mockClient();
   const ui = testTerminal(<App client={mock.client} />);
   try {
@@ -287,8 +292,13 @@ test('switching message views resets selection and restores the own-message serv
     assert.ok(ui.frame().includes('0 selected'));
     await ui.press('v');
     await ui.waitFor((frame) => frame.includes('/ 2 msgs'));
-    assert.equal(mock.requests.at(-1)!.fromUser, 'me');
+    assert.equal(mock.requests.length, 2, 'Mine and All retain separate cached histories');
+    assert.equal(mock.requests[0]!.fromUser, 'me');
+    assert.ok(ui.frame().includes('Mine [v]') && !ui.frame().includes('Other Person'));
     assert.ok(ui.frame().includes('0 selected'));
+    await ui.press('r');
+    await ui.waitFor(() => mock.requests.length === 3);
+    assert.equal(mock.requests.at(-1)!.fromUser, 'me');
   } finally {
     await ui.close();
   }
@@ -456,7 +466,11 @@ test('hiding the active private chat switches to the first group and clears its 
     await ui.waitFor((frame) => frame.includes('TG MANAGER / Study group') && frame.includes('/ 2 msgs'));
     assert.ok(ui.frame().includes('0 selected'));
     assert.ok(!ui.frame().includes('[x]'));
-    assert.deepEqual(mock.entities, ['group', 'private', 'group']);
+    assert.deepEqual(
+      mock.entities,
+      ['group', 'private'],
+      'returning to a fresh cached group needs no request',
+    );
     await ui.press('d');
     assert.ok(!ui.frame().includes('Type DELETE'));
     assert.equal(mock.deletions.length, 0);
@@ -492,7 +506,7 @@ test('accounts containing only private chats show a useful empty state and never
     await ui.press('p');
     await ui.waitFor((frame) => frame.includes('/ 2 msgs'));
     assert.ok(ui.frame().includes('0 selected'));
-    assert.deepEqual(mock.entities, ['private', 'private']);
+    assert.deepEqual(mock.entities, ['private'], 'showing a fresh cached private chat needs no request');
   } finally {
     await ui.close();
   }

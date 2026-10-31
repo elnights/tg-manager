@@ -112,7 +112,7 @@ test('refresh preserves active ID and selection when dialogs reorder', async () 
   try {
     await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
     await ui.press('\x1b[B');
-    await ui.waitFor((frame) => frame.includes('TG MANAGER / Group 001'));
+    await ui.waitFor((frame) => frame.includes('TG MANAGER / Group 001') && frame.includes('/ 45 msgs'));
     await ui.press('\t');
     await ui.press(' ');
     mock.dialogs.reverse();
@@ -240,4 +240,122 @@ test('rate-limit error explains server wait without inventing a countdown', () =
     describeError({seconds: 90, errorMessage: 'FLOOD_WAIT_90'}),
     /server requested 90 seconds.*Retry later; no live countdown/,
   );
+});
+
+test('rapid chat navigation waits for idle, remains responsive during reads and rejects late results', async () => {
+  const mock = fixture(5);
+  const original = mock.client.getMessages;
+  let release!: () => void;
+  mock.client.getMessages = async (entity) => {
+    const records = await original(entity);
+    if (entity === 'entity-3')
+      await new Promise<void>((done) => {
+        release = done;
+      });
+    return records.map((record) => ({...record, message: `${entity}: ${record.message}`}));
+  };
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
+    for (let i = 0; i < 3; i++) await ui.press('\x1b[B');
+    assert.deepEqual(mock.calls.messages, ['entity-0']);
+    await ui.waitFor(() => typeof release === 'function');
+    assert.deepEqual(mock.calls.messages, ['entity-0', 'entity-3']);
+    await ui.press('\x1b[B');
+    assert.match(ui.frame(), /TG MANAGER \/ Group 004/);
+    await ui.waitFor((frame) => frame.includes('entity-4:'));
+    release();
+    await new Promise((done) => setImmediate(done));
+    assert.ok(!ui.frame().includes('entity-3:'));
+  } finally {
+    release?.();
+    await ui.close();
+  }
+});
+
+test('returning to a chat restores its cursor without marks or new requests; refresh bypasses cached reads', async () => {
+  const mock = fixture(2);
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
+    await ui.press('\t');
+    for (let i = 0; i < 5; i++) await ui.press('j');
+    await ui.press(' ');
+    await ui.press('\t');
+    await ui.press('j');
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
+    await ui.press('k');
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
+    assert.deepEqual(mock.calls.messages, ['entity-0', 'entity-1']);
+    assert.match(ui.frame(), /0 selected/);
+    await ui.press('\t');
+    await ui.press('\r');
+    assert.match(ui.frame(), /MESSAGE 40/);
+    await ui.press('\x1b');
+    await ui.press('r');
+    await ui.waitFor(() => mock.calls.messages.length === 3);
+  } finally {
+    await ui.close();
+  }
+});
+
+test('A to B to A navigation shares an in-flight read and publishes only the latest visit', async () => {
+  const mock = fixture(3);
+  const original = mock.client.getMessages;
+  let release!: () => void;
+  mock.client.getMessages = async (entity) => {
+    const records = await original(entity);
+    if (entity === 'entity-1')
+      await new Promise<void>((done) => {
+        release = done;
+      });
+    return records;
+  };
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
+    await ui.press('j');
+    await ui.waitFor(() => typeof release === 'function');
+    await ui.press('j');
+    await ui.press('k');
+    await ui.waitFor((frame) => frame.includes('Loading history'));
+    release();
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
+    assert.match(ui.frame(), /TG MANAGER \/ Group 001/);
+    assert.deepEqual(mock.calls.messages, ['entity-0', 'entity-1']);
+  } finally {
+    release?.();
+    await ui.close();
+  }
+});
+
+test('stopping a pending chat read leaves it retryable and never caches an empty success', async () => {
+  const mock = fixture(2);
+  const original = mock.client.getMessages;
+  let release!: () => void;
+  let hold = true;
+  mock.client.getMessages = async (entity) => {
+    const records = await original(entity);
+    if (hold && entity === 'entity-1')
+      await new Promise<void>((done) => {
+        release = done;
+      });
+    return records;
+  };
+  const ui = testTerminal(<App client={mock.client} />);
+  try {
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
+    await ui.press('j');
+    await ui.waitFor(() => typeof release === 'function');
+    await ui.press('\x1b');
+    assert.match(ui.frame(), /Stopped; r to retry/);
+    release();
+    hold = false;
+    await ui.press('r');
+    await ui.waitFor((frame) => frame.includes('/ 45 msgs'));
+    assert.deepEqual(mock.calls.messages, ['entity-0', 'entity-1', 'entity-1']);
+  } finally {
+    release?.();
+    await ui.close();
+  }
 });

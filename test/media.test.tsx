@@ -438,3 +438,57 @@ test('closing during an original download prevents late file creation and viewer
     await rm(root, {recursive: true, force: true});
   }
 });
+
+test('compact Telegram group-photo previews decode and cache without SOI errors or original downloads', async () => {
+  const compact = Buffer.from([1, 1, 1, 0x28, 0xa2, 0x8a, 0]);
+  const decoded = decodePreview(compact);
+  assert.equal(decoded.width, 1);
+  assert.equal(decoded.height, 1);
+  const media = photo();
+  (media.photo as Api.Photo).sizes = [new Api.PhotoStrippedSize({type: 'i', bytes: compact})];
+  let downloads = 0;
+  const client: TelegramApi = {
+    async getMe() {
+      return {id: 42};
+    },
+    async *iterDialogs() {
+      yield {id: '-5', title: 'Regular group', entity: 'synthetic-group', isGroup: true};
+    },
+    async getMessages() {
+      return [{id: 5, message: 'Compact photo', senderId: 42, media}];
+    },
+    async *iterMessages() {},
+    async deleteMessages() {
+      assert.fail('read-only inspection');
+    },
+    async downloadMedia(_source, options) {
+      assert.ok(options.thumb);
+      downloads++;
+      return compact;
+    },
+  };
+  const ui = testTerminal(<App client={client} />);
+  try {
+    await ui.waitFor((frame) => frame.includes('Compact photo'));
+    await ui.press('\t');
+    await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('Image preview'));
+    assert.ok(!ui.frame().includes('SOI not found'));
+    await ui.press('\x1b');
+    await ui.press('\r');
+    await ui.waitFor((frame) => frame.includes('Image preview'));
+    assert.equal(downloads, 1);
+  } finally {
+    await ui.close();
+  }
+});
+
+test('non-JPEG thumbnails identify unsupported formats before calling the JPEG decoder', () => {
+  for (const [data, format] of [
+    [Buffer.from('RIFF0000WEBP'), 'WebP'],
+    [Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), 'PNG'],
+    [Buffer.from('GIF89a'), 'GIF'],
+  ] as const) {
+    assert.throws(() => decodePreview(data), new RegExp(`${format} thumbnail format is unsupported`));
+  }
+});

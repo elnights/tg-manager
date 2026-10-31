@@ -11,17 +11,23 @@ package's allowlist.
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
 | Startup           | `src/cli.ts`, `src/index.tsx`, `src/client.ts`                                                                                                | CLI options, credentials, client connection/disconnection, session persistence and terminal lifecycle                                 |
 | Login             | `src/CredentialPrompt.tsx`, `src/credentials.ts`, `src/Auth.tsx`                                                                              | Credential validation, QR/cloud-password input, retries and cancellation                                                              |
-| Controller        | `src/App.tsx`, `src/state.ts`, `src/useDiscussion.ts`                                                                                         | Effects, initialization/retry, active chat/view, filtering, atomic selection changes and captured prompts                             |
+| Controller        | `src/App.tsx`, `src/state.ts`, `src/useDiscussion.ts`, `src/browseCache.ts`                                                                   | Effects, initialization/retry, active chat/view, filtering, atomic selection changes and captured prompts                             |
 | Telegram boundary | `src/telegram.ts`, `src/messages.ts`, `src/discussions.ts`                                                                                    | Narrow client interfaces, typed records, linked discussion resolution, message conversion, authorship checks and absence verification |
 | Operations        | `src/operations.ts`, `src/dialogs.ts`, `src/useOperation.ts`                                                                                  | Pagination, own-message scanning, verified deletion and operation lifecycle                                                           |
 | Commands          | `src/commands.ts`                                                                                                                             | Bindings, aliases, availability, footer labels and help data, including prompts/readers                                               |
 | UI                | `src/MessagePane.tsx`, `src/Confirmation.tsx`, `src/Reader.tsx`, `src/Help.tsx`, `src/Footer.tsx`, `src/StatusBar.tsx`, `src/ViewOptions.tsx` | Measured confirmation, isolated scrolling overlays, footer, progress and persistent notices                                           |
 | Terminal text     | `src/ui.tsx`, `src/text.ts`, `src/terminal-output.ts`                                                                                         | Panel dimensions, grapheme-safe rows/wrapping and physical terminal-cell repair                                                       |
-| Storage           | `src/session.ts`, `src/settings.ts`                                                                                                           | Private session storage/migration and injectable layout settings                                                                      |
+| Storage           | `src/session.ts`, `src/credentialStore.ts`, `src/settings.ts`                                                                                 | Private session storage/migration, opt-in API credential storage and injectable layout settings                                       |
 
 `src/media.ts` handles attachment metadata, bounded downloads, JPEG decoding and
 private temporary viewer files. `src/MessageDetails.tsx` owns detail-view transfers
-and portable image rows; `src/Reader.tsx` owns their scrolling and advertised keys.
+and portable image rows; `src/DiscussionDetails.tsx` pairs captured channel-post
+details on the left with read-only thread comments on the right. The main
+`useDiscussion` instance owns the Mine/All filter shared with details; each reader
+keeps its own focus, pagination and scrolling. Details always use the captured
+post/album thread. Changing the shared filter clears discussion marks, including
+rapid toggles back to a cached view, while preserving post marks. Narrow terminals
+show one focused pane. Closing details restores the main screen's focus; `src/Reader.tsx` owns their scrolling and advertised keys.
 Album details use single-row section headers and preview boundaries within the
 reader's scrolling body; the current item has a textual marker and white text
 on dark blue in both its preview header and the item list.
@@ -81,6 +87,17 @@ package exposes a CLI, with no supported programmatic API.
   post changes and bound cached pages; refresh/deletion invalidates caches.
   Automatic discussion reads allow post navigation, while explicit load/scan/
   deletion operations keep their existing synchronous duplicate guard.
+- Automatic chat and discussion reads wait 200 ms after navigation and never
+  acquire the explicit-operation guard. Fresh histories restore without waiting;
+  refresh bypasses the debounce. App-owned `BrowseCache` separates client/account,
+  peer, scope/thread/album and author view, shares in-flight reads with independent
+  cancellation consumers, and expires data after 60 seconds. Retain at most 20
+  histories of three pages, preserving a real pagination cursor, plus 60 read
+  resources and 60 scroll positions. Cache positions, never deletion marks.
+  Refresh/deletion clears caches and prevents pending reads from repopulating
+  invalidated resources. Verification and own-message scans always use the raw
+  client. Decoded thumbnails have a separate 4 MiB budget and use original source
+  object identity, never bare message IDs; originals remain explicit downloads.
 - Histories retain individual messages and raw pagination cursors; `messageRows`
   groups albums only for presentation and navigation. An album keeps the first
   loaded item's row ID as older members arrive. Source-post navigation matches
@@ -118,7 +135,8 @@ package exposes a CLI, with no supported programmatic API.
   thumbnails, and originals require an explicit reader action. Abort and discard
   late results on close. Preview retry (`p`) is available only after a failed
   thumbnail download or decode; hide it during retries and after success.
-  Limit transfer bytes and decoder memory/resolution.
+  Expand compact Telegram thumbnails before JPEG decoding and identify unsupported
+  formats before calling the decoder. Limit transfer bytes and decoder memory/resolution.
   Use ordinary terminal cells, with monochrome fallback, so resizing and clearing
   remain inside Ink. Native graphics protocols and external decoders are unnecessary.
 - Viewer files use a private temporary directory and generated MIME-based names,
@@ -155,6 +173,16 @@ package exposes a CLI, with no supported programmatic API.
   React updater functions; failed persistence retains the in-memory setting.
   Preserve existing storage paths and migration behavior unless changing them is
   explicitly part of the task; see [storage](docs/storage.md).
+- API credential setup validates the pair before asking whether to save. Only
+  explicit Y/Enter consent invokes injected persistence; N uses the pair once,
+  and Esc exits without saving. A save failure keeps setup open for retry or N.
+  `credentialStore` writes unencrypted JSON beside the session using private
+  permissions and atomic replacement. Reject nonregular files/directories on
+  read, validate saved data and never expose the hash in errors. `client.credentials`
+  loads saved credentials only when neither environment key is present and no
+  explicit `--config` was supplied; never mix credential sources or fall back
+  from an invalid explicit configuration. Tests inject credential storage and
+  isolate installed-CLI user paths; never access real saved credentials.
 
 ### Terminal layout and feedback
 
@@ -196,10 +224,11 @@ package exposes a CLI, with no supported programmatic API.
 | Album grouping, pagination, item details and per-message deletion      | `test/albums.test.tsx`, `test/discussions.test.tsx`, `test/media.test.tsx`                  |
 | Channel discussions, discovery, peer isolation and comment deletion    | `test/discussions.test.tsx`, `test/discussion-context.test.tsx`, `test/chat-types.test.tsx` |
 | Pagination, deletion verification and settings failures                | `test/operations.test.tsx`                                                                  |
-| Search, dialog pages, detail input isolation and stable loading layout | `test/navigation.test.tsx`                                                                  |
+| Search, dialog pages, detail input isolation and stable loading layout | `test/navigation.test.tsx`, `test/browse-cache.test.tsx`                                    |
 | Footer/help availability, cancellation and deletion UI                 | `test/ux.test.tsx`                                                                          |
 | Grapheme/layout and terminal-cell behavior                             | `test/ui.test.tsx`, `test/terminal-output.test.tsx`                                         |
 | Session migration and scanner exclusions                               | `test/session.test.tsx`, `test/security.test.tsx`                                           |
+| Credential save consent, permissions, failure recovery and precedence  | `test/credentials.test.tsx`, `test/features.test.tsx`                                       |
 | Allowlisted artifact and production-only installed CLI                 | `test/package.test.mjs`                                                                     |
 
 `test/helpers/App.tsx` injects memory settings into the real App;

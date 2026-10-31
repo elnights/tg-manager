@@ -1,23 +1,68 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="384" height="378" viewBox="0 0 384 378">
-<title>Synthetic TG Manager: actual App render at 40 columns by 18 rows</title>
-<rect width="100%" height="100%" fill="#111827"/>
-<g fill="#e5e7eb" font-family="monospace" font-size="14">
-<text x="12" y="22" fill="#67e8f9">SYNTHETIC UI · 40×18 · OFFLINE</text>
-<text x="12" y="48" xml:space="preserve">TG MANAGER / Weekend project</text>
-<text x="12" y="67" xml:space="preserve">Account: Synthetic account (ID 42)</text>
-<text x="12" y="86" xml:space="preserve">Mine [v] · Types: G S C [f]</text>
-<text x="12" y="105" xml:space="preserve">With my messages: off [o]</text>
-<text x="12" y="124" xml:space="preserve">Loaded: 100 chats / 100 msgs</text>
-<text x="12" y="143" xml:space="preserve">[ACTIVE] GR…|[ ] MESSAGES</text>
-<text x="12" y="162" xml:space="preserve">&gt; [G] Weeke…|&gt; [ ] You: Synthetic plan…</text>
-<text x="12" y="181" xml:space="preserve"> [G]  Synth…| [ ] You: Synthetic plann…</text>
-<text x="12" y="200" xml:space="preserve"> [G]  Synth…| [ ] You: Synthetic plann…</text>
-<text x="12" y="219" xml:space="preserve"> [G]  Synth…| [ ] You: Synthetic plann…</text>
-<text x="12" y="238" xml:space="preserve"> [G]  Synth…| [ ] You: Synthetic plann…</text>
-<text x="12" y="257" xml:space="preserve"> [G]  Synth…| [ ] You: Synthetic plann…</text>
-<text x="12" y="276" xml:space="preserve"> [G]  Synth…| [ ] You: Synthetic plann…</text>
-<text x="12" y="295" xml:space="preserve"> [G]  Synth…| [ ] You: Synthetic plann…</text>
-<text x="12" y="314" xml:space="preserve">0 selected · More may be available · M…</text>
-<text x="12" y="333" xml:space="preserve"></text>
-<text x="12" y="352" xml:space="preserve">↑↓/jk Tab/←→ p P+B / R m r A q/Ctrl+C ?</text>
-</g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="392" height="430" viewBox="0 0 392 430" role="img" aria-labelledby="title description">
+<title id="title">TG Manager — everyday Telegram conversations</title>
+<desc id="description">Actual terminal UI at 40 columns by 18 rows, rendered offline with fictional chats and messages.</desc>
+<defs><clipPath id="window"><rect width="392" height="430" rx="12"/></clipPath></defs>
+<g clip-path="url(#window)">
+<rect width="392" height="430" fill="#0f172a"/>
+<rect width="392" height="38" fill="#1e293b"/>
+<circle cx="20" cy="19" r="5" fill="#fb7185"/>
+<circle cx="38" cy="19" r="5" fill="#fbbf24"/>
+<circle cx="56" cy="19" r="5" fill="#4ade80"/>
+<text x="196" y="24" fill="#cbd5e1" text-anchor="middle" font-family="monospace" font-size="12">tg-manager</text>
+<rect x="16" y="154" width="108" height="20" fill="#1e3a8a"/>
+<rect x="16" y="174" width="108" height="20" fill="#fde047"/>
+<g font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'" font-size="14" xml:space="preserve" style="white-space:pre">
+<text x="16" y="69" fill="#d1d5db" font-weight="700" textLength="243" lengthAdjust="spacingAndGlyphs">TG MANAGER / Weekend hikers</text>
+<text x="268" y="69" fill="#d1d5db" font-weight="700">🥾</text>
+<text x="16" y="89" fill="#d6deeb" textLength="252" lengthAdjust="spacingAndGlyphs">Account: Alex Morgan (ID 42)</text>
+<text x="16" y="109" fill="#67e8f9" textLength="243" lengthAdjust="spacingAndGlyphs">Mine [v] · Types: G S C [f]</text>
+<text x="16" y="129" fill="#67e8f9" textLength="225" lengthAdjust="spacingAndGlyphs">With my messages: off [o]</text>
+<text x="16" y="149" fill="#67e8f9" textLength="252" lengthAdjust="spacingAndGlyphs">Loaded: 100 chats / 100 msgs</text>
+<text x="16" y="169" fill="#f8fafc" font-weight="700" textLength="108" lengthAdjust="spacingAndGlyphs">[ACTIVE] GR…</text>
+<text x="124" y="169" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="133" y="169" fill="#d1d5db" font-weight="700" textLength="108" lengthAdjust="spacingAndGlyphs">[ ] MESSAGES</text>
+<text x="16" y="189" fill="#0f172a" font-weight="700" textLength="45" lengthAdjust="spacingAndGlyphs">&gt; [G]</text>
+<text x="70" y="189" fill="#0f172a" font-weight="700" textLength="54" lengthAdjust="spacingAndGlyphs">Weeke…</text>
+<text x="124" y="189" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="133" y="189" fill="#fde047" textLength="234" lengthAdjust="spacingAndGlyphs">&gt; [ ] You: Train at 08:42…</text>
+<text x="25" y="209" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[C]</text>
+<text x="70" y="209" fill="#d1d5db" textLength="54" lengthAdjust="spacingAndGlyphs">Pragu…</text>
+<text x="124" y="209" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="142" y="209" fill="#d1d5db" textLength="225" lengthAdjust="spacingAndGlyphs">[ ] You: Saved the trail…</text>
+<text x="25" y="229" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="229" fill="#d1d5db" textLength="54" lengthAdjust="spacingAndGlyphs">Flatm…</text>
+<text x="124" y="229" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="142" y="229" fill="#d1d5db" textLength="225" lengthAdjust="spacingAndGlyphs">[ ] You: Count me in + o…</text>
+<text x="25" y="249" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[C]</text>
+<text x="70" y="249" fill="#d1d5db" textLength="54" lengthAdjust="spacingAndGlyphs">TypeS…</text>
+<text x="124" y="249" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="142" y="249" fill="#d1d5db" textLength="225" lengthAdjust="spacingAndGlyphs">[ ] You: That view was w…</text>
+<text x="25" y="269" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="269" fill="#d1d5db" textLength="54" lengthAdjust="spacingAndGlyphs">Dinne…</text>
+<text x="124" y="269" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="142" y="269" fill="#d1d5db" textLength="225" lengthAdjust="spacingAndGlyphs">[ ] You: Same time next …</text>
+<text x="25" y="289" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[S]</text>
+<text x="70" y="289" fill="#d1d5db" textLength="54" lengthAdjust="spacingAndGlyphs">Pragu…</text>
+<text x="124" y="289" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="142" y="289" fill="#d1d5db" textLength="225" lengthAdjust="spacingAndGlyphs">[ ] You: Back home. Than…</text>
+<text x="25" y="309" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="309" fill="#d1d5db" textLength="54" lengthAdjust="spacingAndGlyphs">Kyoto…</text>
+<text x="124" y="309" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="142" y="309" fill="#d1d5db" textLength="225" lengthAdjust="spacingAndGlyphs">[ ] You: Let’s try the r…</text>
+<text x="25" y="329" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[S]</text>
+<text x="70" y="329" fill="#d1d5db" textLength="54" lengthAdjust="spacingAndGlyphs">Open …</text>
+<text x="124" y="329" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="142" y="329" fill="#d1d5db" textLength="225" lengthAdjust="spacingAndGlyphs">[ ] You: Running five mi…</text>
+<text x="16" y="349" fill="#d1d5db" textLength="351" lengthAdjust="spacingAndGlyphs">0 selected · More may be available · M…</text>
+<text x="16" y="389" fill="#67e8f9" font-weight="700" textLength="45" lengthAdjust="spacingAndGlyphs">↑↓/jk</text>
+<text x="70" y="389" fill="#67e8f9" font-weight="700" textLength="54" lengthAdjust="spacingAndGlyphs">Tab/←→</text>
+<text x="133" y="389" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">p</text>
+<text x="151" y="389" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">P+B</text>
+<text x="187" y="389" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">/</text>
+<text x="205" y="389" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">R</text>
+<text x="223" y="389" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">m</text>
+<text x="241" y="389" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">r</text>
+<text x="259" y="389" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">A</text>
+<text x="277" y="389" fill="#67e8f9" font-weight="700" textLength="72" lengthAdjust="spacingAndGlyphs">q/Ctrl+C</text>
+<text x="358" y="389" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">?</text>
+</g></g></svg>

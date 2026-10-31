@@ -16,6 +16,8 @@ import {
 } from './media.js';
 import type {Progress} from './StatusBar.js';
 import {describeError} from './errors.js';
+import type {BrowseCache} from './browseCache.js';
+import type {Shortcut} from './commands.js';
 
 // Half-block pixels are ordinary terminal cells, so Ink owns their scrolling,
 // clipping and clearing on every platform. Monochrome terminals use luminance.
@@ -71,6 +73,7 @@ export function MessageDetails({
   client,
   chat,
   selfId,
+  cache,
   ...props
 }: {
   message: Message;
@@ -81,6 +84,10 @@ export function MessageDetails({
   height: number;
   onClose: () => void;
   files?: MediaFiles;
+  cache?: BrowseCache;
+  active?: boolean;
+  shortcuts?: Shortcut[];
+  focused?: boolean;
 }) {
   const [items, setItems] = useState(() => messageItems(message));
   const [selectedId, setSelectedId] = useState(() => messageItems(message)[0]!.id);
@@ -90,7 +97,9 @@ export function MessageDetails({
   useEffect(() => {
     if (!message.groupedId || !client.getMessages || !chat || !selfId) return;
     let disposed = false;
-    void albumRecords({getMessages: client.getMessages.bind(client)}, chat, message.id, message.groupedId)
+    const load = () =>
+      albumRecords({getMessages: client.getMessages!.bind(client)}, chat, message.id, message.groupedId!);
+    void (cache ? cache.read(cache.key('album', selfId, chat.id, message.groupedId), load) : load())
       .then((records) => {
         if (disposed) return;
         const found = new Map(messageItems(message).map((item) => [item.id, item]));
@@ -105,7 +114,7 @@ export function MessageDetails({
     return () => {
       disposed = true;
     };
-  }, [client, chat, selfId, message]);
+  }, [client, chat, selfId, message, cache]);
   const index = Math.max(
     0,
     items.findIndex((item) => item.id === selectedId),
@@ -116,6 +125,8 @@ export function MessageDetails({
       key={current.id}
       {...props}
       client={client}
+      cache={cache}
+      scrollKey={cache?.key('detail-scroll', selfId, chat?.id, current.id)}
       message={current}
       album={message.groupedId ? items : undefined}
       albumStatus={albumStatus}
@@ -136,6 +147,11 @@ function MessageItemDetails({
   albumStatus,
   albumIndex,
   onItem,
+  active = true,
+  shortcuts = [],
+  focused,
+  cache,
+  scrollKey,
 }: {
   message: Message;
   client: Pick<TelegramApi, 'downloadMedia'>;
@@ -147,6 +163,11 @@ function MessageItemDetails({
   albumStatus: string;
   albumIndex: number;
   onItem: (index: number) => void;
+  active?: boolean;
+  shortcuts?: Shortcut[];
+  focused?: boolean;
+  cache?: BrowseCache;
+  scrollKey?: string;
 }) {
   const attachment = message.attachment;
   const canPreview = Boolean(attachment?.preview && client.downloadMedia);
@@ -180,6 +201,7 @@ function MessageItemDetails({
         if (preview) {
           const decoded = decodePreview(data);
           if (!task.signal.aborted) {
+            cache?.savePreview(attachment.source, decoded);
             setImage(decoded);
             setStatus('Image preview');
           }
@@ -204,17 +226,22 @@ function MessageItemDetails({
         }
       }
     },
-    [attachment, client, files],
+    [attachment, client, files, cache],
   );
   useEffect(() => {
     closed.current = false;
-    if (canPreview) void run(true);
+    const cached = attachment && cache?.preview(attachment.source);
+    if (cached) {
+      setImage(cached);
+      setStatus('Image preview');
+      setProgress(null);
+    } else if (canPreview) void run(true);
     return () => {
       closed.current = true;
       current.current?.abort();
       current.current = null;
     };
-  }, [canPreview, run]);
+  }, [canPreview, run, cache, attachment]);
   const pixels = useMemo(
     () =>
       image
@@ -286,6 +313,11 @@ function MessageItemDetails({
       onClose={onClose}
       extraLines={extraLines}
       progress={progress}
+      active={active}
+      shortcuts={shortcuts}
+      focused={focused}
+      cache={cache}
+      scrollKey={scrollKey}
       media={{
         preview: canPreview && previewFailed,
         open: canOpen && !saved.current,
