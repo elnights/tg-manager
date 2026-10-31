@@ -30,7 +30,7 @@ export function legendRows(shortcuts: Shortcut[], width: number): LegendRow[] {
     else rows.push({shortcuts: [shortcut], gap: ' '});
   }
   // Reserve every key first, then spend spare cells on useful descriptions.
-  const captions = ['[ ]', '0', 'A', 'c', '?'];
+  const captions = ['[ ]', '0', 'A', 's', 'c', '?'];
   for (const row of rows)
     for (const item of [...row.shortcuts].sort(
       (a, b) =>

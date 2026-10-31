@@ -123,11 +123,11 @@ and resets messages and marks.
 
 ## Message selection
 
-| Key     | Action                                                                                    |
-| ------- | ----------------------------------------------------------------------------------------- |
-| `Space` | Toggle the current own message (messages panel)                                           |
-| `s`     | Select own loaded messages; if more may exist, offer to load the rest of the current view |
-| `c`     | Clear selection from either panel                                                         |
+| Key     | Action                                                                                         |
+| ------- | ---------------------------------------------------------------------------------------------- |
+| `Space` | Toggle the current own message (messages panel)                                                |
+| `s`     | Select all your loaded messages; if more may exist, offer to load the rest of the current view |
+| `c`     | Clear selection from either panel                                                              |
 
 In the selection prompt, `Y` / `y` loads the remaining view and selects only
 your messages. `N` / `n` selects loaded own messages. `Esc`, `C` / `c` cancels

@@ -212,10 +212,9 @@ export const commands: Command[] = [
   {
     id: 'select',
     key: 's',
-    label: 'Select own',
-    compactLabel: 'Own',
+    label: 'Select all',
     group: 'Message selection',
-    description: 'Select own; offer to load remaining history',
+    description: 'Select all your messages in the current view; offer to load remaining history',
     chars: ['s'],
     available: (state) => messages(state) && (state.hasOwn || state.hasMore),
   },

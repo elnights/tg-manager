@@ -73,7 +73,7 @@ See [storage and migration](docs/storage.md) before moving an existing install.
 | `o`                        | Show only loaded chats containing your own messages                       |
 | `v`                        | Switch Mine / All in the focused message pane                             |
 | `t`                        | Switch discussion scope: selected post / entire linked group              |
-| `Space`, `s`, `c`          | Mark one / select own / clear selection                                   |
+| `Space`, `s`, `c`          | Mark one / select all / clear selection                                   |
 | `n`, **`L`**               | Load next page / remaining view                                           |
 | `d`                        | Confirm deletion of marked own messages                                   |
 | `?`                        | Open the complete keyboard reference                                      |
