@@ -5,7 +5,7 @@ import {fetchMessagePage, ownMessageIds} from './messages.js';
 import {footerShortcuts, legendRows, ShortcutLegend, type FooterState} from './Footer.js';
 import {boundedText, wrapText} from './text.js';
 import {describeError} from './errors.js';
-import {commandFor} from './commands.js';
+import {commandFor, commands} from './commands.js';
 import {Help} from './Help.js';
 import {TypeFilter, viewOptionLines} from './ViewOptions.js';
 import {ActivityHeader, StatusBar, useNotice} from './StatusBar.js';
@@ -999,7 +999,7 @@ export function App({
             )}
             {showDiscussion && (!compactPanes || inDiscussion) && (
               <MessagePane
-                title={`DISCUSSION · ${discussion.scope === 'group' ? 'Entire group' : `Post #${postMessages[state.messageIndex]?.id ?? '—'}`}`}
+                title={`DISCUSSION · ${discussion.scope === 'group' ? 'Entire group' : `Post #${postMessages[state.messageIndex]?.id ?? '—'}`} [${commands.find((command) => command.id === 'discussion')!.key}]`}
                 width={rightWidth}
                 height={compactPanes ? listHeight + 1 : discussionHeight}
                 active={inDiscussion}
