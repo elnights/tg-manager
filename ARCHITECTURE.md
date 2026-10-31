@@ -122,7 +122,12 @@ package exposes a CLI, with no supported programmatic API.
 
 ### Terminal layout and feedback
 
-- Keep routine loading feedback in the bottom status area. Reserve the normal
+- Show an animated, high-contrast activity badge at the right of the existing
+  title row for explicit operations, discussion reads and source-post lookup.
+  Include the operation, counts when known and cancellation state; keep detailed
+  progress in the bottom status area. Own-chat filtering displays checking or
+  stopping until its result is applied. Reserve these states in the view strip
+  so they cannot add rows during work. Reserve the normal
   footer's space while busy so chat lists do not move or change viewport height.
   Do not insert transient banners above the panels during chat navigation.
   Use the same view strip for every chat type, with pane-specific summaries

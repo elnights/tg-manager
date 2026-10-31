@@ -193,6 +193,12 @@ work list their own accepted keys, including Ctrl+C.
 The footer shows `p` as “Private + bots” (or “P+B” when space is limited).
 It toggles both types together; `f` lets you filter them independently.
 
+An animated yellow indicator at the top right shows message loading, discussion
+loading, source-post lookup and other work. Chat checks show a checked/total
+count; “With my messages” reads “checking” until completion. Esc changes it to
+“stopping” while the current request finishes. The title and filter keep their
+height during work, and the bottom status row retains detailed progress.
+
 The legend always reserves room for every active key. It first shortens labels,
 then uses key names with descriptions where space allows. At narrower widths,
 additional legend rows reduce the message area instead of hiding bindings.

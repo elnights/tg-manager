@@ -83,12 +83,14 @@ See [storage and migration](docs/storage.md) before moving an existing install.
 Keys are case-sensitive. The top strip shows Mine/All, enabled chat types,
 and exact loaded chat/message counts. The footer shows actions; `?` opens the
 full reference, including layout and extended navigation controls. The bottom
-status row shows selection, progress and notices.
+status row shows selection, progress and notices. An animated yellow indicator
+at the top right shows current work, counts when available and `Esc` to stop.
 “More may be available” means the next page has not been checked.
 
 Use `o` in the top view strip to show only chats containing your own messages.
 Enabling it checks each loaded chat with Telegram’s own-message filter and
 discovers linked channel discussions, including groups absent from your dialogs.
+The filter reads “checking” while its checks run, and “on” when they finish.
 New chat pages are checked too. It works with Mine/All, chat-type filters and search.
 Escape stops checks. Failed or cancelled checks leave the filter off, retain loaded
 chats, and show a notice; press `o` to retry. After deleting a chat’s last own

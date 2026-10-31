@@ -4,6 +4,7 @@
 
 ### Added
 
+- Show an animated top-right activity indicator with operation counts and cancellation feedback; label own-message filtering while checks run.
 - Show chat-type badges and filter any combination of private chats, bots, basic groups, supergroups and channels.
 - Split channel posts and discussions into independent panes, with Mine/All filters and selected-post or entire-group scope, including general chat.
 - Follow post highlights with debounced, cached thread loading and preserve correct deletion scope and peer identity.

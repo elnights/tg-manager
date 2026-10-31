@@ -16,6 +16,7 @@ export function viewOptionLines(
     includePrivate: boolean;
     types?: ReadonlySet<ChatType>;
     ownOnly?: boolean;
+    ownCheck?: 'checking' | 'stopping';
     chats: number;
     messages: number;
     reservedMessages?: number;
@@ -25,7 +26,13 @@ export function viewOptionLines(
   const types =
     options.types ??
     new Set([...defaultChatTypes, ...(options.includePrivate ? (['private', 'bot'] as const) : [])]);
-  const ownChats = options.ownOnly ? 'on' : 'off';
+  const ownChats = options.ownCheck
+    ? width < 30
+      ? '...'
+      : options.ownCheck
+    : options.ownOnly
+      ? 'on'
+      : 'off';
   const chats = options.chats.toLocaleString('en-US');
   const messages = options.messages.toLocaleString('en-US');
   const build = (showHints: boolean, reserve = false) => {
@@ -41,7 +48,7 @@ export function viewOptionLines(
         .map((type) => chatTypeLabels[type].symbol)
         .join(' ') || 'none'
     }${hint('types')}`;
-    const own = `With my messages${width < 30 ? ' ' : ': '}${ownChats}${hint('ownChats')}`;
+    const own = `With my messages${width < 30 ? ' ' : ': '}${reserve ? (width < 30 ? '...' : 'checking') : ownChats}${hint('ownChats')}`;
     const counts = `Loaded: ${chats} chats / ${messageCount} msgs`;
     if (width >= 90) return [filters + ' · ' + own + ' · ' + counts];
     if (width >= 70) return [filters + ' · ' + own, counts];

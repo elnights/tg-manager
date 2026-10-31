@@ -8,7 +8,7 @@ import {describeError} from './errors.js';
 import {commandFor} from './commands.js';
 import {Help} from './Help.js';
 import {TypeFilter, viewOptionLines} from './ViewOptions.js';
-import {StatusBar, useNotice} from './StatusBar.js';
+import {ActivityHeader, StatusBar, useNotice} from './StatusBar.js';
 import {useOperation} from './useOperation.js';
 import {Reader} from './Reader.js';
 import {Confirmation, confirmationLines} from './Confirmation.js';
@@ -511,6 +511,8 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
     includePrivate,
     types: state.types,
     ownOnly,
+    ownCheck:
+      progress?.label === 'Checking chats' ? (progress.cancelling ? 'stopping' : 'checking') : undefined,
     chats: state.chats.length,
     messages: postMessages.length,
     reservedMessages: headerMessageCount.current,
@@ -809,20 +811,20 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
   });
 
   const chatStart = Math.max(0, chatIndex - listHeight + 1);
+  const activity =
+    progress ??
+    (locatingPost
+      ? {label: `Locating post #${sourcePostId}`}
+      : showDiscussion && discussion.status === 'loading'
+        ? {label: 'Loading discussion'}
+        : null);
   const statusBar = (
     <StatusBar
       width={lineWidth}
       hasMore={hasMore}
       chatsMore={chatsMore}
       selected={selected.size}
-      progress={
-        progress ??
-        (locatingPost
-          ? {label: `Locating post #${sourcePostId}`}
-          : showDiscussion && discussion.status === 'loading'
-            ? {label: 'Loading discussion'}
-            : null)
-      }
+      progress={activity}
       notice={notice}
     />
   );
@@ -890,7 +892,11 @@ export function App({client, settings = settingsStore}: {client: TelegramApi; se
     );
   return (
     <Box flexDirection="column" width={lineWidth} height={height} overflow="hidden">
-      <Row width={lineWidth} bold color="white">{`TG MANAGER / ${active?.title || 'Select chat'}`}</Row>
+      <ActivityHeader
+        title={`TG MANAGER / ${active?.title || 'Select chat'}`}
+        width={lineWidth}
+        progress={activity}
+      />
       {accountLines.map((line, index) => (
         <Row key={`account-${index}`} width={lineWidth}>
           {line}

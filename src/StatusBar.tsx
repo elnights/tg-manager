@@ -62,6 +62,67 @@ export function progressText(progress: Progress): string {
   }${progress.verified === undefined ? '' : ` · ${progress.verified.toLocaleString('en-US')} verified`}`;
 }
 
+export function ActivityHeader({
+  title,
+  width,
+  progress,
+}: {
+  title: string;
+  width: number;
+  progress: Progress | null;
+}) {
+  const [frame, setFrame] = useState(0);
+  const busy = Boolean(progress);
+  useEffect(() => {
+    if (!busy) return;
+    const timer = setInterval(() => setFrame((value) => (value + 1) % 4), 120);
+    return () => clearInterval(timer);
+  }, [busy]);
+  const operation = progress?.cancelling
+    ? progress.label === 'Checking chats'
+      ? 'Stopping chat checks'
+      : `Stopping ${progress.label.toLowerCase()}`
+    : progress?.label === 'Loading'
+      ? 'Loading messages'
+      : progress?.label;
+  const label = progress
+    ? `${operation}${
+        progress.completed === undefined
+          ? ''
+          : ` ${progress.completed.toLocaleString('en-US')}${progress.total === undefined ? '' : `/${progress.total.toLocaleString('en-US')}`}`
+      }${progress.cancelling ? '' : ' · Esc stop'}`
+    : '';
+  const indicator = `${['.', 'o', 'O', 'o'][frame]} ${label}`;
+  const indicatorWidth = Math.min(
+    Math.max(0, width - Math.min(14, Math.floor(width / 3)) - 1),
+    stringWidth(indicator) + 2,
+  );
+  return (
+    <Box width={width} height={1} flexShrink={0} overflow="hidden">
+      <Box flexGrow={1} flexShrink={1} overflow="hidden">
+        <Text bold color="white" wrap="truncate-end">
+          {singleLine(title)}
+        </Text>
+      </Box>
+      {progress && (
+        <Box
+          width={indicatorWidth}
+          height={1}
+          flexShrink={0}
+          marginLeft={1}
+          paddingX={1}
+          backgroundColor="yellowBright"
+          overflow="hidden"
+        >
+          <Text bold color="black" wrap="truncate-end">
+            {indicator}
+          </Text>
+        </Box>
+      )}
+    </Box>
+  );
+}
+
 export function StatusBar({
   width,
   hasMore,

@@ -159,10 +159,12 @@ for (const columns of [80, 40, 25]) {
       assert.ok(before.length > 1, 'the chat list must be visible');
       await ui.press('\x1b[B');
       await ui.waitFor((frame) => frame.includes('Loading history'));
+      assert.match(ui.frame().split('\n')[0]!, /[.oO] Loading/);
       assert.deepEqual(chatRows(ui.frame()), before, 'loading must not move or resize the chat list');
       assert.ok(!ui.frame().includes('Telegram may wait/retry internally.'));
       release();
       await ui.waitFor((frame) => !frame.includes('Loading history'));
+      assert.ok(!ui.frame().split('\n')[0]!.includes('Loading messages'));
       assert.deepEqual(chatRows(ui.frame()), before, 'completion must preserve the same viewport');
     } finally {
       release?.();

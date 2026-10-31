@@ -9,7 +9,7 @@ import {App} from './helpers/App.js';
 import {Footer, footerShortcuts, legendRows, type FooterState} from '../src/Footer.js';
 import {commandFor, commands} from '../src/commands.js';
 import {viewOptionLines} from '../src/ViewOptions.js';
-import {StatusBar} from '../src/StatusBar.js';
+import {ActivityHeader, StatusBar} from '../src/StatusBar.js';
 import {Help, helpSections} from '../src/Help.js';
 import {absentMessageIds} from '../src/messages.js';
 import {testTerminal} from './helpers/terminal.js';
@@ -120,6 +120,23 @@ test('status keeps summary alongside information and distinguishes requested fro
   assert.match(narrow, /Loading/);
 });
 
+test('top-right activity stays visible beside long Unicode titles without adding header rows', () => {
+  for (const width of [24, 39, 59, 79, 119, 199]) {
+    const output = plain(
+      <ActivityHeader
+        title={`TG MANAGER / ${'👨‍👩‍👧‍👦 ✈️ Café '.repeat(20)}`}
+        width={width}
+        progress={{label: 'Checking chats', completed: 12, total: 205}}
+      />,
+      width + 1,
+    );
+    assert.equal(output.includes('\n'), false);
+    assert.ok(stringWidth(output) >= width - 1 && stringWidth(output) <= width);
+    assert.match(output, /[.oO] Checking/);
+    if (width >= 59) assert.match(output, /Checking chats 12\/205 · Esc stop\s*$/);
+  }
+});
+
 test('view options show exact counts separately from actions at wide and narrow sizes', () => {
   for (const width of [24, 39, 59, 79, 119, 199])
     for (const view of ['mine', 'all'] as const)
@@ -160,7 +177,11 @@ test('view-strip height remains constant across author views, loading counts and
     for (const view of ['mine', 'all'] as const)
       for (const messages of [0, 1, 100, 10000])
         for (const shortcuts of [true, false])
-          assert.equal(viewOptionLines(width, {...options, view, messages, shortcuts}).length, rows);
+          for (const ownCheck of [undefined, 'checking', 'stopping'] as const)
+            assert.equal(
+              viewOptionLines(width, {...options, view, messages, shortcuts, ownCheck}).length,
+              rows,
+            );
   }
 });
 

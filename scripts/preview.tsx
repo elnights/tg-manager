@@ -1,5 +1,6 @@
 import React from 'react';
 import {writeFileSync} from 'node:fs';
+import {setTimeout as delay} from 'node:timers/promises';
 import {render} from 'ink';
 import {App} from '../src/App.js';
 import {TerminalOutput} from '../src/terminal-output.js';
@@ -11,7 +12,7 @@ import {getPeerId} from 'teleproto/Utils.js';
 import type {MessageRecord} from '../src/telegram.js';
 
 // Public, synthetic fixtures only: no authentication, disk settings or sessions.
-function syntheticClient(channelMode = false): TelegramApi {
+function syntheticClient(channelMode = false, slow = false): TelegramApi {
   const channel = new Api.Channel({
     id: returnBigInt(1000),
     accessHash: returnBigInt(123),
@@ -80,6 +81,7 @@ function syntheticClient(channelMode = false): TelegramApi {
         };
     },
     async getMessages(entity, options) {
+      if (slow) await delay(options.limit === 1 ? 250 : 600);
       const roots =
         entity === group && options.ids
           ? options.ids.filter((id) => id > 1000).map((id) => root(id - 1000))
@@ -157,7 +159,10 @@ ${lines.map((line, index) => `<text x="12" y="${48 + index * 19}" xml:space="pre
 } else {
   const stdout = new TerminalOutput(process.stdout);
   const instance = render(
-    <App client={syntheticClient(process.argv.includes('--channel'))} settings={settings} />,
+    <App
+      client={syntheticClient(process.argv.includes('--channel'), process.argv.includes('--slow'))}
+      settings={settings}
+    />,
     {
       stdout,
       alternateScreen: true,

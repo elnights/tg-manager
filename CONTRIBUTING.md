@@ -46,6 +46,8 @@ changes and formatting separate in review where practical.
 `npm run preview:synthetic` runs the real App with fake clients and in-memory
 settings; `npm run preview:capture` regenerates the README SVG and a narrow preview.
 Neither reads real sessions nor connects to Telegram.
+Add `-- --slow` to the synthetic preview to observe message loading, own-chat
+check progress and cancellation in the activity indicator.
 
 See [Publishing](docs/publishing.md) for release preparation.
 Run [the local secret review](docs/security.md) before publishing changes.
