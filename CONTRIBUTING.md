@@ -46,6 +46,12 @@ changes and formatting separate in review where practical.
 `npm run preview:synthetic` runs the real App with fake clients and in-memory
 settings; `npm run preview:capture` regenerates the README SVG and a narrow preview.
 Neither reads real sessions nor connects to Telegram.
+Add `-- --slow` to the synthetic preview to observe message loading, own-chat
+check progress and cancellation in the activity indicator.
+Add `-- --media` to inspect a synthetic photo with Tab then Enter; combine it
+with `--slow` to test cancelling a preview. Its system opener is disabled.
+Add `-- --album` to inspect a grouped three-photo album; combine it with
+`--channel` to exercise its shared discussion. Use `[` / `]` in details to switch items.
 
 See [Publishing](docs/publishing.md) for release preparation.
 Run [the local secret review](docs/security.md) before publishing changes.

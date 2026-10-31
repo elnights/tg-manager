@@ -185,20 +185,30 @@ test('cancelled or failed checks leave the original list and selection usable, a
     await ready(ui, mock);
     await ui.press('o');
     await ui.waitFor((frame) => frame.includes('Checking chats'));
+    const header = ui.frame().split('\n')[0]!;
+    assert.match(header, /Checking chats 0\/4 · Esc stop\s*$/);
+    assert.ok(ui.frame().includes('With my messages: checking'));
+    assert.ok(!ui.frame().includes('With my messages: on'));
+    await ui.waitFor((frame) => frame.split('\n')[0] !== header);
+    assert.match(ui.frame().split('\n')[0]!, /Checking chats 0\/4 · Esc stop\s*$/);
     await ui.press('o');
     assert.equal(mock.calls.filter((call) => call.limit === 1).length, 1);
     await ui.press('\x1b');
+    assert.match(ui.frame().split('\n')[0]!, /Stopping chat checks 0\/4/);
+    assert.ok(ui.frame().includes('With my messages: stopping'));
     release();
     await ui.waitFor(
       (frame) => frame.includes('Stopped checking chats') && frame.includes('With my messages: off [o]'),
     );
     assert.ok(ui.frame().includes('Group 000') && ui.frame().includes('Group 003'));
+    assert.ok(!ui.frame().split('\n')[0]!.includes('Stopping chat checks'));
     mock.controls.probe = async () => {
       throw new Error('Synthetic probe failure');
     };
     await ui.press('o');
     await ui.waitFor((frame) => frame.includes('Synthetic probe failure'));
     assert.ok(ui.frame().includes('With my messages: off [o]') && ui.frame().includes('Group 000'));
+    assert.ok(!ui.frame().split('\n')[0]!.includes('Checking chats'));
     mock.controls.probe = undefined;
     await ui.press('o');
     await ui.waitFor((frame) => frame.includes('With my messages: on [o]'));

@@ -7,6 +7,10 @@ import headless from '@xterm/headless';
 import unicodeGraphemes from '@xterm/addon-unicode-graphemes';
 import {TerminalOutput} from '../src/terminal-output.js';
 import {adjustChatPercent, panelWidths, Panels, PanelHeader, Row, useTerminalSize} from '../src/ui.js';
+import {returnBigInt} from 'teleproto/Helpers.js';
+import {MessageDetails} from '../src/MessageDetails.js';
+import {messageRecords, messageRows} from '../src/messages.js';
+import {photo} from './helpers/media.js';
 
 const {Terminal} = headless;
 const {UnicodeGraphemesAddon} = unicodeGraphemes;
@@ -86,6 +90,69 @@ test('active pane headers use white on dark blue and keep their textual focus ma
         'the whole header must have a dark blue background',
       );
     }
+  } finally {
+    emulator.dispose();
+  }
+});
+
+test('album details bound the preview and highlight the current item across the full terminal row', async () => {
+  const emulator = terminal('6', 80, 60);
+  const messages = messageRecords(
+    [3, 4, 5].map((id) => ({
+      id,
+      groupedId: returnBigInt(123),
+      media: photo(id),
+      message: `Synthetic item ${id}`,
+    })),
+    '42',
+    'mine',
+  );
+  try {
+    emulator.write(
+      renderToString(
+        <MessageDetails
+          message={messageRows(messages)[0]!}
+          client={{}}
+          width={79}
+          height={59}
+          onClose={() => {}}
+        />,
+        {columns: 80},
+      ),
+    );
+    await new Promise<void>((resolve) => emulator.write('', resolve));
+    const lines = Array.from({length: 60}, (_, row) => emulator.buffer.active.getLine(row)!);
+    const index = (label: string) => {
+      const found = lines.findIndex((line) => line.translateToString().includes(label));
+      assert.ok(found >= 0, `missing section: ${label}`);
+      return found;
+    };
+    const preview = index('── Preview · #3');
+    const end = index('── End preview · #3');
+    const contents = index('── Album items');
+    assert.ok(preview < end && end < contents, 'preview boundaries precede the item sections');
+    assert.ok(
+      contents < index('MESSAGE #3') &&
+        index('MESSAGE #3') < index('MESSAGE #4') &&
+        index('MESSAGE #4') < index('MESSAGE #5'),
+    );
+    for (const label of ['[CURRENT] Viewing item 1/3 · #3', '[CURRENT] MESSAGE #3']) {
+      const line = lines[index(label)]!;
+      for (const column of [0, 12, 78])
+        assert.ok(
+          [4, 61, 0x1e3a8a].includes(line.getCell(column)!.getBgColor()),
+          'the current section fills the row with dark blue',
+        );
+      assert.ok([15, 231, 0xffffff].includes(line.getCell(0)!.getFgColor()), 'current-item text stays white');
+      assert.equal(line.getCell(79)!.getBgColor(), -1, 'highlight stops inside the reserved terminal width');
+    }
+    for (const id of [4, 5])
+      assert.equal(
+        lines[index(`── MESSAGE #${id}`)]!.getCell(0)!.getBgColor(),
+        -1,
+        'other items have distinct unhighlighted headings',
+      );
+    assert.equal(emulator.buffer.active.baseY, 0, 'section rules do not overflow the terminal');
   } finally {
     emulator.dispose();
   }

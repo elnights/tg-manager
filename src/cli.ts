@@ -30,10 +30,11 @@ On first launch, scan the QR code in Telegram's Devices settings.
 Groups and channels are shown by default. Press p to include private chats.
 Main keys: Tab switch panel; arrows or j/k move; PgUp/PgDn page; Home/End ends;
 / search loaded chats; R refresh chats; m more chats; Enter inspect a message;
+g focus a comment’s source post; f filter chat types; t discussion scope (selected post / entire group); o chats with my messages;
 Space mark; s select own;
-c clear selection; n next page; L load all; v view mine/all;
-d delete marked; A delete all own messages; [ / ] adjust chat width;
-0 reset chat width to 32%; r reload messages/retry initialization; ! notice details; ? keyboard help; q quit; Ctrl+C quit anytime.
+c clear selection; n next page; L load all; v focused pane mine/all;
+d delete marked; A scan own in focused scope; [ / ] adjust chat width;
+{ / } adjust posts height; 0 reset layout; r reload messages/retry initialization; ! notice details; ? keyboard help; q quit; Ctrl+C quit anytime.
 Esc stops background work after the in-flight request; completed batches stay deleted.
 Deletion requires typing DELETE and pressing Enter; Esc cancels.`);
     return;

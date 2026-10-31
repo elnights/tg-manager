@@ -5,8 +5,9 @@ import {boundedText, wrapText} from './text.js';
 
 export type ConfirmationTarget = {
   ids: readonly number[];
-  chat: {id: string; title: string};
+  chat: {id: string; title: string; discussionFor?: string};
   scope: 'selected' | 'entire';
+  discussionScope?: string;
 };
 
 export {boundedText} from './text.js';
@@ -23,6 +24,12 @@ export function confirmationLines(
     `Chat: ${boundedText(target.chat.title)}`,
     `Chat ID: ${target.chat.id}`,
     `Scope: ${target.scope === 'entire' ? 'entire-history' : 'selected-message'} deletion; exact count: ${target.ids.length}`,
+    ...(target.chat.discussionFor
+      ? [
+          target.discussionScope ??
+            'Discussion group scope includes channel comments and other group messages.',
+        ]
+      : []),
     'WARNING: Deletion is irreversible, can affect other participants and cannot be undone.',
     `Type DELETE and Enter (Esc to cancel): ${input}_`,
     'Exact uppercase DELETE; separate Enter required. Backspace/Del edit; ? help; Ctrl+C quit.',

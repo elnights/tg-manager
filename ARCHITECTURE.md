@@ -7,17 +7,24 @@ package's allowlist.
 
 ## Module map
 
-| Area              | Files                                                                                                                  | Responsibility                                                                                            |
-| ----------------- | ---------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| Startup           | `src/cli.ts`, `src/index.tsx`, `src/client.ts`                                                                         | CLI options, credentials, client connection/disconnection, session persistence and terminal lifecycle     |
-| Login             | `src/CredentialPrompt.tsx`, `src/credentials.ts`, `src/Auth.tsx`                                                       | Credential validation, QR/cloud-password input, retries and cancellation                                  |
-| Controller        | `src/App.tsx`, `src/state.ts`                                                                                          | Effects, initialization/retry, active chat/view, filtering, atomic selection changes and captured prompts |
-| Telegram boundary | `src/telegram.ts`, `src/messages.ts`                                                                                   | Narrow client interfaces, typed records, message conversion, authorship checks and absence verification   |
-| Operations        | `src/operations.ts`, `src/dialogs.ts`, `src/useOperation.ts`                                                           | Pagination, own-message scanning, verified deletion and operation lifecycle                               |
-| Commands          | `src/commands.ts`                                                                                                      | Bindings, aliases, availability, footer labels and help data, including prompts/readers                   |
-| UI                | `src/Confirmation.tsx`, `src/Reader.tsx`, `src/Help.tsx`, `src/Footer.tsx`, `src/StatusBar.tsx`, `src/ViewOptions.tsx` | Measured confirmation, isolated scrolling overlays, footer, progress and persistent notices               |
-| Terminal text     | `src/ui.tsx`, `src/text.ts`, `src/terminal-output.ts`                                                                  | Panel dimensions, grapheme-safe rows/wrapping and physical terminal-cell repair                           |
-| Storage           | `src/session.ts`, `src/settings.ts`                                                                                    | Private session storage/migration and injectable layout settings                                          |
+| Area              | Files                                                                                                                                         | Responsibility                                                                                                                        |
+| ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| Startup           | `src/cli.ts`, `src/index.tsx`, `src/client.ts`                                                                                                | CLI options, credentials, client connection/disconnection, session persistence and terminal lifecycle                                 |
+| Login             | `src/CredentialPrompt.tsx`, `src/credentials.ts`, `src/Auth.tsx`                                                                              | Credential validation, QR/cloud-password input, retries and cancellation                                                              |
+| Controller        | `src/App.tsx`, `src/state.ts`, `src/useDiscussion.ts`                                                                                         | Effects, initialization/retry, active chat/view, filtering, atomic selection changes and captured prompts                             |
+| Telegram boundary | `src/telegram.ts`, `src/messages.ts`, `src/discussions.ts`                                                                                    | Narrow client interfaces, typed records, linked discussion resolution, message conversion, authorship checks and absence verification |
+| Operations        | `src/operations.ts`, `src/dialogs.ts`, `src/useOperation.ts`                                                                                  | Pagination, own-message scanning, verified deletion and operation lifecycle                                                           |
+| Commands          | `src/commands.ts`                                                                                                                             | Bindings, aliases, availability, footer labels and help data, including prompts/readers                                               |
+| UI                | `src/MessagePane.tsx`, `src/Confirmation.tsx`, `src/Reader.tsx`, `src/Help.tsx`, `src/Footer.tsx`, `src/StatusBar.tsx`, `src/ViewOptions.tsx` | Measured confirmation, isolated scrolling overlays, footer, progress and persistent notices                                           |
+| Terminal text     | `src/ui.tsx`, `src/text.ts`, `src/terminal-output.ts`                                                                                         | Panel dimensions, grapheme-safe rows/wrapping and physical terminal-cell repair                                                       |
+| Storage           | `src/session.ts`, `src/settings.ts`                                                                                                           | Private session storage/migration and injectable layout settings                                                                      |
+
+`src/media.ts` handles attachment metadata, bounded downloads, JPEG decoding and
+private temporary viewer files. `src/MessageDetails.tsx` owns detail-view transfers
+and portable image rows; `src/Reader.tsx` owns their scrolling and advertised keys.
+Album details use single-row section headers and preview boundaries within the
+reader's scrolling body; the current item has a textual marker and white text
+on dark blue in both its preview header and the item list.
 
 Keep the Ink/React/TypeScript app small. Share related behavior at these existing
 boundaries before introducing another abstraction or runtime dependency. The
@@ -35,6 +42,66 @@ package exposes a CLI, with no supported programmatic API.
   dialog pages and refreshed lists; failed/cancelled checks turn the filter off
   and retain received dialogs. Refreshing a chat after its last own message is
   deleted removes it atomically from the filtered list.
+- Chat types are mutually exclusive: private, bot, basic group, supergroup and
+  broadcast channel. Apply a set of enabled types atomically, composing it with
+  title/ID search and own-chat filtering. Type badges use a fixed terminal-cell
+  column. A type filter affects dialogs, not a visible channel’s linked pane.
+- Broadcast channels retain their identity in the chat list. Posts default to All;
+  an independent discussion pane defaults to Entire group + Mine. Entire group
+  includes general chat. Own-chat checks retain the source channel for own posts
+  or messages anywhere in its discussion; do not insert synthetic group dialogs.
+- Resolve linked groups using `channels.getFullChannel` and post roots using
+  `messages.getDiscussionMessage`. Validate the returned group peer and forwarded
+  source channel/post before using a thread ID. Never substitute the channel on
+  failure or join implicitly. Preserve exact album (`groupedId`) identifiers;
+  resolve sibling items in a bounded source-channel lookup independent of loaded
+  pages and author filters. Use thread metadata or the first album item, never
+  caption position, to request the discussion; use the first validated forwarded
+  album message as its shared group root. `MSG_ID_INVALID` and empty discussion
+  responses leave the post discussion unavailable with no operation target or
+  persistent footer error. Other RPC/validation failures remain errors; an
+  unavailable post must never fetch or scan the entire group.
+  Carry a typed source post ID alongside context
+  labels; never derive navigation targets by parsing display strings. Direct
+  replies fall back from an absent top ID to the reply ID. Follow same-group
+  reply chains in batches until a forwarded source post or confirmed ordinary
+  group root is reached; do not assume the direct parent is the thread root.
+  A valid local thread top takes precedence over a cross-peer quote; foreign
+  direct reply IDs cannot reuse a coincident group message ID. Cycles, missing
+  or partial metadata, failed reads and the 16-hop lookup limit remain Context
+  unavailable and uncached, never General. Cache only resolved paths, bounded to
+  300 IDs per group/source. Context discovery never requires loaded channel posts
+  and checks cancellation before requesting another ancestor batch. Thread Mine uses `topMsgId` + `fromUser`; Teleproto
+  ignores its sender filter in the `replyTo`/GetReplies branch. Thread All uses
+  `replyTo`. Group context lookups are batched, bounded and independent of loaded
+  channel posts. Failed/unresolved context labels never discard message rows.
+- Each message pane owns its cursor, authors, pagination and marks. Changing
+  channel/thread/view clears the affected marks immediately. Discussion results
+  carry a source/scope/post/view/revision key; reject late responses. Debounce
+  post changes and bound cached pages; refresh/deletion invalidates caches.
+  Automatic discussion reads allow post navigation, while explicit load/scan/
+  deletion operations keep their existing synchronous duplicate guard.
+- Histories retain individual messages and raw pagination cursors; `messageRows`
+  groups albums only for presentation and navigation. An album keeps the first
+  loaded item's row ID as older members arrive. Source-post navigation matches
+  every member ID. Marking a row toggles only its owned loaded members; new page
+  members remain unmarked, and partial selection uses `[~]`. Selection counts,
+  deletion confirmations and verification always count individual message IDs.
+  Details capture the row and peer, resolve missing album items read-only, and
+  never add those inspection results to history or selection. Each attachment
+  uses its original message object; switching details items aborts its transfer.
+- Focusing a linked discussion row highlights its channel post while keeping
+  keyboard focus in the discussion. `g` explicitly transfers focus. A missing
+  loaded post is located with a contiguous All-authors page and a real cursor;
+  require the exact source ID before replacing history. Switch Posts to All
+  atomically, clearing marks on a view change and retaining only visible own
+  marks otherwise. Preserve discussion selection. Stale/cancelled lookups and
+  open prompts/readers cannot retarget either pane. Refresh after deletion
+  revalidates history without clearing unrelated post marks.
+- Deletion captures the focused pane, actual peer, IDs and source/thread scope.
+  A selected-post scan must include the resolved thread filter; Entire group
+  scans include general chat. Channel and group message IDs can overlap and
+  must never share a selection or verification namespace.
 - Only own messages may enter a deletion target. Mine uses Telegram's own-message
   filter; All checks sender identity or outgoing private-message metadata. An
   outgoing channel post alone is insufficient proof of authorship.
@@ -46,6 +113,18 @@ package exposes a CLI, with no supported programmatic API.
 
 ### Operations and cancellation
 
+- Media comes from the captured message object, including the correct discussion
+  peer; never cache attachments by bare message ID. Only details request bounded
+  thumbnails, and originals require an explicit reader action. Abort and discard
+  late results on close. Preview retry (`p`) is available only after a failed
+  thumbnail download or decode; hide it during retries and after success.
+  Limit transfer bytes and decoder memory/resolution.
+  Use ordinary terminal cells, with monochrome fallback, so resizing and clearing
+  remain inside Ink. Native graphics protocols and external decoders are unnecessary.
+- Viewer files use a private temporary directory and generated MIME-based names,
+  never Telegram-provided paths or executable extensions. Opening is injected in
+  tests. Retain explicitly opened files for asynchronous viewers, show their path
+  if opening fails, and keep them outside session storage and the repository.
 - `useOperation.begin()` guards duplicates synchronously with a ref. Finish every
   task in cleanup/finally, and check `task.active` before publishing asynchronous
   results. Message results also carry their chat ID and view into the reducer.
@@ -79,15 +158,25 @@ package exposes a CLI, with no supported programmatic API.
 
 ### Terminal layout and feedback
 
-- Keep routine loading feedback in the bottom status area. Reserve the normal
+- Show an animated, high-contrast activity badge at the right of the existing
+  title row for explicit operations, discussion reads and source-post lookup.
+  Include the operation, counts when known and cancellation state; keep detailed
+  progress in the bottom status area. Own-chat filtering displays checking or
+  stopping until its result is applied. Reserve these states in the view strip
+  so they cannot add rows during work. Reserve the normal
   footer's space while busy so chat lists do not move or change viewport height.
   Do not insert transient banners above the panels during chat navigation.
+  Use the same view strip for every chat type, with pane-specific summaries
+  inside the panes. Reserve the widest loaded message count and Mine hint width,
+  plus footer space for channel/background actions, across chat navigation.
+  Pending, missing and resolved discussions must not shift the chat viewport.
   Keep the view strip height stable during message loading and focus changes.
   Use explicit white on dark blue for active headers, with a textual focus marker
   so focus stays visible across terminal palettes.
 - Derive matching, availability and advertised bindings from `commands.ts`.
   Show view toggles and exact loaded counts in the top view strip; reserve the
-  footer for actions. Extended navigation and layout bindings stay in help.
+  footer for actions and the private-chat/bot shortcut. Extended navigation and
+  layout bindings stay in help.
   Keep every active binding discoverable through the strip, footer or help.
   Readers/help isolate input from the underlying app; help may overlay an existing prompt.
 - Progress takes precedence during work. Preserve errors/results until
@@ -100,16 +189,18 @@ package exposes a CLI, with no supported programmatic API.
 
 ## Validation map
 
-| Change                                                                 | Relevant coverage                                   |
-| ---------------------------------------------------------------------- | --------------------------------------------------- |
-| Confirmation, login, retry and notice retention                        | `test/safety.test.tsx`                              |
-| Own-message selection and message views                                | `test/features.test.tsx`, `test/own-chats.test.tsx` |
-| Pagination, deletion verification and settings failures                | `test/operations.test.tsx`                          |
-| Search, dialog pages, detail input isolation and stable loading layout | `test/navigation.test.tsx`                          |
-| Footer/help availability, cancellation and deletion UI                 | `test/ux.test.tsx`                                  |
-| Grapheme/layout and terminal-cell behavior                             | `test/ui.test.tsx`, `test/terminal-output.test.tsx` |
-| Session migration and scanner exclusions                               | `test/session.test.tsx`, `test/security.test.tsx`   |
-| Allowlisted artifact and production-only installed CLI                 | `test/package.test.mjs`                             |
+| Change                                                                 | Relevant coverage                                                                           |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| Confirmation, login, retry and notice retention                        | `test/safety.test.tsx`                                                                      |
+| Own-message selection and message views                                | `test/features.test.tsx`, `test/own-chats.test.tsx`                                         |
+| Album grouping, pagination, item details and per-message deletion      | `test/albums.test.tsx`, `test/discussions.test.tsx`, `test/media.test.tsx`                  |
+| Channel discussions, discovery, peer isolation and comment deletion    | `test/discussions.test.tsx`, `test/discussion-context.test.tsx`, `test/chat-types.test.tsx` |
+| Pagination, deletion verification and settings failures                | `test/operations.test.tsx`                                                                  |
+| Search, dialog pages, detail input isolation and stable loading layout | `test/navigation.test.tsx`                                                                  |
+| Footer/help availability, cancellation and deletion UI                 | `test/ux.test.tsx`                                                                          |
+| Grapheme/layout and terminal-cell behavior                             | `test/ui.test.tsx`, `test/terminal-output.test.tsx`                                         |
+| Session migration and scanner exclusions                               | `test/session.test.tsx`, `test/security.test.tsx`                                           |
+| Allowlisted artifact and production-only installed CLI                 | `test/package.test.mjs`                                                                     |
 
 `test/helpers/App.tsx` injects memory settings into the real App;
 `test/helpers/terminal.tsx` supplies input, resize and frame controls. Use deferred
