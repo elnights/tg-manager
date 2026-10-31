@@ -6,7 +6,7 @@ It works with messages Telegram still lets your account access and identifies as
 
 A terminal app for browsing your Telegram history and cleaning up your own messages.
 
-![TG Manager showing chats, messages and keyboard controls with synthetic data](assets/synthetic-terminal.svg)
+![TG Manager browsing everyday chats and channels, with hiking messages selected for deletion (fictional demo data)](assets/synthetic-terminal.svg)
 
 ## Get started
 

@@ -44,7 +44,7 @@
     "format:check": "node scripts/format.mjs",
     "format": "node scripts/format.mjs --write",
     "preview:synthetic": "node --import tsx scripts/preview.tsx",
-    "preview:capture": "node --import tsx scripts/preview.tsx --capture"
+    "preview:capture": "FORCE_COLOR=1 node --import tsx scripts/preview.tsx --capture"
   },
   "dependencies": {
     "ansi-regex": "^6.5.0",

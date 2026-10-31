@@ -166,7 +166,7 @@ Short terminals show one right pane at a time; Tab changes panes and resizing
 restores the split without losing marks. Channels without linked discussions
 use the full message area for posts.
 
-![Synthetic channel view showing posts above the entire linked discussion group](../assets/synthetic-channel.svg)
+![Prague After Hours posts and linked comments in TG Manager (fictional demo data)](../assets/synthetic-channel.svg)
 
 ## Deletion safety
 

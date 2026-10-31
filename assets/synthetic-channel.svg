@@ -1,37 +1,211 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1104" height="644" viewBox="0 0 1104 644">
-<title>Synthetic TG Manager: actual App render at 120 columns by 32 rows</title>
-<rect width="100%" height="100%" fill="#111827"/>
-<g fill="#e5e7eb" font-family="monospace" font-size="14">
-<text x="12" y="22" fill="#67e8f9">SYNTHETIC UI · 120×32 · OFFLINE</text>
-<text x="12" y="48" xml:space="preserve">TG MANAGER / Synthetic news</text>
-<text x="12" y="67" xml:space="preserve">Account: Synthetic account (ID 42)</text>
-<text x="12" y="86" xml:space="preserve">All [v] · Types: G S C [f] · With my messages: off [o] · Loaded: 100 chats / 100 msgs</text>
-<text x="12" y="105" xml:space="preserve">[ACTIVE] GROUPS/CHANNELS             |[ ] POSTS · All</text>
-<text x="12" y="124" xml:space="preserve">&gt; [C] Synthetic news                 |Posts: 0 selected · 100 loaded</text>
-<text x="12" y="143" xml:space="preserve"> [G]  Synthetic group 1              |&gt; [-] #300 Sender 99: Example message — inspect with Enter before marking.</text>
-<text x="12" y="162" xml:space="preserve"> [G]  Synthetic group 2              | [ ] #299 You: Synthetic planning message 1</text>
-<text x="12" y="181" xml:space="preserve"> [G]  Synthetic group 3              | [ ] #298 You: Synthetic planning message 2</text>
-<text x="12" y="200" xml:space="preserve"> [G]  Synthetic group 4              | [-] #297 Sender 99: Synthetic planning message 3</text>
-<text x="12" y="219" xml:space="preserve"> [G]  Synthetic group 5              | [ ] #296 You: Synthetic planning message 4</text>
-<text x="12" y="238" xml:space="preserve"> [G]  Synthetic group 6              | [ ] #295 You: Synthetic planning message 5</text>
-<text x="12" y="257" xml:space="preserve"> [G]  Synthetic group 7              | [-] #294 Sender 99: Synthetic planning message 6</text>
-<text x="12" y="276" xml:space="preserve"> [G]  Synthetic group 8              | [ ] #293 You: Synthetic planning message 7</text>
-<text x="12" y="295" xml:space="preserve"> [G]  Synthetic group 9              | [ ] #292 You: Synthetic planning message 8</text>
-<text x="12" y="314" xml:space="preserve"> [G]  Synthetic group 10             | [-] #291 Sender 99: Synthetic planning message 9</text>
-<text x="12" y="333" xml:space="preserve"> [G]  Synthetic group 11             | [ ] #290 You: Synthetic planning message 10</text>
-<text x="12" y="352" xml:space="preserve"> [G]  Synthetic group 12             |[ ] DISCUSSION · Entire group · t to change scope</text>
-<text x="12" y="371" xml:space="preserve"> [G]  Synthetic group 13             |Mine [v] · 100 loaded · 0 selected</text>
-<text x="12" y="390" xml:space="preserve"> [G]  Synthetic group 14             |&gt; [ ] [General] You: Synthetic general conversation</text>
-<text x="12" y="409" xml:space="preserve"> [G]  Synthetic group 15             | [ ] [Post #299] You: Synthetic comment 1</text>
-<text x="12" y="428" xml:space="preserve"> [G]  Synthetic group 16             | [ ] [Post #298] You: Synthetic comment 2</text>
-<text x="12" y="447" xml:space="preserve"> [G]  Synthetic group 17             | [ ] [Post #299] You: Synthetic comment 4</text>
-<text x="12" y="466" xml:space="preserve"> [G]  Synthetic group 18             | [ ] [Post #298] You: Synthetic comment 5</text>
-<text x="12" y="485" xml:space="preserve"> [G]  Synthetic group 19             | [ ] [Post #299] You: Synthetic comment 7</text>
-<text x="12" y="504" xml:space="preserve"> [G]  Synthetic group 20             | [ ] [Post #298] You: Synthetic comment 8</text>
-<text x="12" y="523" xml:space="preserve"> [G]  Synthetic group 21             | [ ] [Post #299] You: Synthetic comment 10</text>
-<text x="12" y="542" xml:space="preserve"> [G]  Synthetic group 22             | [ ] [Post #298] You: Synthetic comment 11</text>
-<text x="12" y="561" xml:space="preserve"> [G]  Synthetic group 23             | [ ] [Post #299] You: Synthetic comment 13</text>
-<text x="12" y="580" xml:space="preserve"> [G]  Synthetic group 24             | [ ] [Post #298] You: Synthetic comment 14</text>
-<text x="12" y="599" xml:space="preserve">0 selected · More may be available · More chats may be available</text>
-<text x="12" y="618" xml:space="preserve">↑↓/jk Move Tab/←→ Panel p P+B / Search R Chats m More t Scope r Reload q/Ctrl+C Quit ? Help</text>
-</g></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1112" height="710" viewBox="0 0 1112 710" role="img" aria-labelledby="title description">
+<title id="title">TG Manager — everyday Telegram conversations</title>
+<desc id="description">Actual terminal UI at 120 columns by 32 rows, rendered offline with fictional chats and messages.</desc>
+<defs><clipPath id="window"><rect width="1112" height="710" rx="12"/></clipPath></defs>
+<g clip-path="url(#window)">
+<rect width="1112" height="710" fill="#0f172a"/>
+<rect width="1112" height="38" fill="#1e293b"/>
+<circle cx="20" cy="19" r="5" fill="#fb7185"/>
+<circle cx="38" cy="19" r="5" fill="#fbbf24"/>
+<circle cx="56" cy="19" r="5" fill="#4ade80"/>
+<text x="556" y="24" fill="#cbd5e1" text-anchor="middle" font-family="monospace" font-size="12">tg-manager</text>
+<rect x="16" y="114" width="333" height="20" fill="#1e3a8a"/>
+<rect x="16" y="134" width="333" height="20" fill="#fde047"/>
+<g font-family="'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace, 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji'" font-size="14" xml:space="preserve" style="white-space:pre">
+<text x="16" y="69" fill="#d1d5db" font-weight="700" textLength="279" lengthAdjust="spacingAndGlyphs">TG MANAGER / Prague After Hours</text>
+<text x="304" y="69" fill="#d1d5db" font-weight="700">🌆</text>
+<text x="16" y="89" fill="#d6deeb" textLength="252" lengthAdjust="spacingAndGlyphs">Account: Alex Morgan (ID 42)</text>
+<text x="16" y="109" fill="#67e8f9" textLength="765" lengthAdjust="spacingAndGlyphs">All [v] · Types: G S C [f] · With my messages: off [o] · Loaded: 100 chats / 100 msgs</text>
+<text x="16" y="129" fill="#f8fafc" font-weight="700" textLength="216" lengthAdjust="spacingAndGlyphs">[ACTIVE] GROUPS/CHANNELS</text>
+<text x="349" y="129" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="358" y="129" fill="#d1d5db" font-weight="700" textLength="135" lengthAdjust="spacingAndGlyphs">[ ] POSTS · All</text>
+<text x="16" y="149" fill="#0f172a" font-weight="700" textLength="45" lengthAdjust="spacingAndGlyphs">&gt; [C]</text>
+<text x="70" y="149" fill="#0f172a" font-weight="700" textLength="162" lengthAdjust="spacingAndGlyphs">Prague After Hours</text>
+<text x="241" y="149" fill="#0f172a" font-weight="700">🌆</text>
+<text x="349" y="149" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="358" y="149" fill="#67e8f9" textLength="270" lengthAdjust="spacingAndGlyphs">Posts: 0 selected · 100 loaded</text>
+<text x="25" y="169" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="169" fill="#d1d5db" textLength="126" lengthAdjust="spacingAndGlyphs">Weekend hikers</text>
+<text x="205" y="169" fill="#d1d5db">🥾</text>
+<text x="349" y="169" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="358" y="169" fill="#fde047" textLength="441" lengthAdjust="spacingAndGlyphs">&gt; [ ] #300 You: Night trams are back this weekend</text>
+<text x="808" y="169" fill="#fde047">🚋</text>
+<text x="835" y="169" fill="#fde047" textLength="117" lengthAdjust="spacingAndGlyphs">· 18 comments</text>
+<text x="25" y="189" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="189" fill="#d1d5db" textLength="81" lengthAdjust="spacingAndGlyphs">Flatmates</text>
+<text x="160" y="189" fill="#d1d5db">🪴</text>
+<text x="349" y="189" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="189" fill="#d1d5db" textLength="243" lengthAdjust="spacingAndGlyphs">[-] #299 Prague After Hours</text>
+<text x="619" y="189" fill="#d1d5db">🌆</text>
+<text x="637" y="189" fill="#d1d5db" textLength="351" lengthAdjust="spacingAndGlyphs">: New café on the corner. Open until 10</text>
+<text x="997" y="189" fill="#d1d5db">☕</text>
+<text x="1024" y="189" fill="#d1d5db" textLength="63" lengthAdjust="spacingAndGlyphs">· 7 co…</text>
+<text x="25" y="209" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[C]</text>
+<text x="70" y="209" fill="#d1d5db" textLength="153" lengthAdjust="spacingAndGlyphs">TypeScript Weekly</text>
+<text x="232" y="209" fill="#d1d5db">🧑‍💻</text>
+<text x="349" y="209" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="209" fill="#d1d5db" textLength="405" lengthAdjust="spacingAndGlyphs">[ ] #298 You: Free museum night this Saturday</text>
+<text x="781" y="209" fill="#d1d5db">🏛️</text>
+<text x="808" y="209" fill="#d1d5db" textLength="117" lengthAdjust="spacingAndGlyphs">· 24 comments</text>
+<text x="25" y="229" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="229" fill="#d1d5db" textLength="99" lengthAdjust="spacingAndGlyphs">Dinner club</text>
+<text x="178" y="229" fill="#d1d5db">🍜</text>
+<text x="349" y="229" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="229" fill="#d1d5db" textLength="243" lengthAdjust="spacingAndGlyphs">[-] #297 Prague After Hours</text>
+<text x="619" y="229" fill="#d1d5db">🌆</text>
+<text x="637" y="229" fill="#d1d5db" textLength="369" lengthAdjust="spacingAndGlyphs">: Sunday market: pastries, flowers, vinyl</text>
+<text x="1015" y="229" fill="#d1d5db">🌷</text>
+<text x="1042" y="229" fill="#d1d5db" textLength="45" lengthAdjust="spacingAndGlyphs">· 11…</text>
+<text x="25" y="249" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[S]</text>
+<text x="70" y="249" fill="#d1d5db" textLength="126" lengthAdjust="spacingAndGlyphs">Prague cycling</text>
+<text x="205" y="249" fill="#d1d5db">🚲</text>
+<text x="349" y="249" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="249" fill="#d1d5db" textLength="450" lengthAdjust="spacingAndGlyphs">[ ] #296 You: Five little bookshops worth a detour</text>
+<text x="826" y="249" fill="#d1d5db">📚</text>
+<text x="853" y="249" fill="#d1d5db" textLength="117" lengthAdjust="spacingAndGlyphs">· 18 comments</text>
+<text x="25" y="269" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="269" fill="#d1d5db" textLength="90" lengthAdjust="spacingAndGlyphs">Kyoto trip</text>
+<text x="169" y="269" fill="#d1d5db">🇯🇵</text>
+<text x="349" y="269" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="269" fill="#d1d5db" textLength="243" lengthAdjust="spacingAndGlyphs">[-] #295 Prague After Hours</text>
+<text x="619" y="269" fill="#d1d5db">🌆</text>
+<text x="637" y="269" fill="#d1d5db" textLength="270" lengthAdjust="spacingAndGlyphs">: Autumn walks along the river</text>
+<text x="916" y="269" fill="#d1d5db">🍂</text>
+<text x="943" y="269" fill="#d1d5db" textLength="108" lengthAdjust="spacingAndGlyphs">· 7 comments</text>
+<text x="25" y="289" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[S]</text>
+<text x="70" y="289" fill="#d1d5db" textLength="144" lengthAdjust="spacingAndGlyphs">Open Source Café</text>
+<text x="223" y="289" fill="#d1d5db">☕</text>
+<text x="349" y="289" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="289" fill="#d1d5db" textLength="432" lengthAdjust="spacingAndGlyphs">[ ] #294 You: Live jazz in the courtyard tonight</text>
+<text x="808" y="289" fill="#d1d5db">🎷</text>
+<text x="835" y="289" fill="#d1d5db" textLength="117" lengthAdjust="spacingAndGlyphs">· 24 comments</text>
+<text x="25" y="309" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="309" fill="#d1d5db" textLength="99" lengthAdjust="spacingAndGlyphs">Little wins</text>
+<text x="178" y="309" fill="#d1d5db">✨</text>
+<text x="349" y="309" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="309" fill="#d1d5db" textLength="243" lengthAdjust="spacingAndGlyphs">[-] #293 Prague After Hours</text>
+<text x="619" y="309" fill="#d1d5db">🌆</text>
+<text x="637" y="309" fill="#d1d5db" textLength="324" lengthAdjust="spacingAndGlyphs">: A tiny guide to the best dumplings</text>
+<text x="970" y="309" fill="#d1d5db">🥟</text>
+<text x="997" y="309" fill="#d1d5db" textLength="90" lengthAdjust="spacingAndGlyphs">· 11 comm…</text>
+<text x="25" y="329" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[C]</text>
+<text x="70" y="329" fill="#d1d5db" textLength="108" lengthAdjust="spacingAndGlyphs">Indie Makers</text>
+<text x="187" y="329" fill="#d1d5db">🚀</text>
+<text x="349" y="329" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="329" fill="#d1d5db" textLength="423" lengthAdjust="spacingAndGlyphs">[ ] #292 You: Night trams are back this weekend</text>
+<text x="799" y="329" fill="#d1d5db">🚋</text>
+<text x="826" y="329" fill="#d1d5db" textLength="117" lengthAdjust="spacingAndGlyphs">· 18 comments</text>
+<text x="25" y="349" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="349" fill="#d1d5db" textLength="135" lengthAdjust="spacingAndGlyphs">Sunday football</text>
+<text x="214" y="349" fill="#d1d5db">⚽</text>
+<text x="349" y="349" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="349" fill="#d1d5db" textLength="243" lengthAdjust="spacingAndGlyphs">[-] #291 Prague After Hours</text>
+<text x="619" y="349" fill="#d1d5db">🌆</text>
+<text x="637" y="349" fill="#d1d5db" textLength="351" lengthAdjust="spacingAndGlyphs">: New café on the corner. Open until 10</text>
+<text x="997" y="349" fill="#d1d5db">☕</text>
+<text x="1024" y="349" fill="#d1d5db" textLength="63" lengthAdjust="spacingAndGlyphs">· 7 co…</text>
+<text x="25" y="369" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="369" fill="#d1d5db" textLength="81" lengthAdjust="spacingAndGlyphs">Book club</text>
+<text x="160" y="369" fill="#d1d5db">📚</text>
+<text x="349" y="369" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="369" fill="#d1d5db" textLength="405" lengthAdjust="spacingAndGlyphs">[ ] #290 You: Free museum night this Saturday</text>
+<text x="781" y="369" fill="#d1d5db">🏛️</text>
+<text x="808" y="369" fill="#d1d5db" textLength="117" lengthAdjust="spacingAndGlyphs">· 24 comments</text>
+<text x="25" y="389" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[C]</text>
+<text x="70" y="389" fill="#d1d5db" textLength="153" lengthAdjust="spacingAndGlyphs">Music discoveries</text>
+<text x="232" y="389" fill="#d1d5db">🎧</text>
+<text x="349" y="389" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="358" y="389" fill="#d1d5db" font-weight="700" textLength="441" lengthAdjust="spacingAndGlyphs">[ ] DISCUSSION · Entire group · t to change scope</text>
+<text x="25" y="409" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="409" fill="#d1d5db" textLength="126" lengthAdjust="spacingAndGlyphs">Family kitchen</text>
+<text x="205" y="409" fill="#d1d5db">🥘</text>
+<text x="349" y="409" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="358" y="409" fill="#67e8f9" textLength="306" lengthAdjust="spacingAndGlyphs">Mine [v] · 100 loaded · 0 selected</text>
+<text x="25" y="429" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="429" fill="#d1d5db" textLength="153" lengthAdjust="spacingAndGlyphs">Board game nights</text>
+<text x="232" y="429" fill="#d1d5db">🎲</text>
+<text x="349" y="429" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="358" y="429" fill="#fde047" textLength="540" lengthAdjust="spacingAndGlyphs">&gt; [ ] [General] You: Anyone up for coffee before the market?</text>
+<text x="907" y="429" fill="#fde047">☕</text>
+<text x="25" y="449" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[C]</text>
+<text x="70" y="449" fill="#d1d5db" textLength="99" lengthAdjust="spacingAndGlyphs">Trail notes</text>
+<text x="178" y="449" fill="#d1d5db">🌲</text>
+<text x="349" y="449" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="449" fill="#d1d5db" textLength="504" lengthAdjust="spacingAndGlyphs">[ ] [Post #298] You: Went last year. Absolutely worth it</text>
+<text x="880" y="449" fill="#d1d5db">✨</text>
+<text x="25" y="469" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="469" fill="#d1d5db" textLength="90" lengthAdjust="spacingAndGlyphs">Film night</text>
+<text x="169" y="469" fill="#d1d5db">🍿</text>
+<text x="349" y="469" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="469" fill="#d1d5db" textLength="486" lengthAdjust="spacingAndGlyphs">[ ] [Post #299] You: Their cinnamon buns are dangerous</text>
+<text x="862" y="469" fill="#d1d5db">🥐</text>
+<text x="25" y="489" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[S]</text>
+<text x="70" y="489" fill="#d1d5db" textLength="126" lengthAdjust="spacingAndGlyphs">Balcony garden</text>
+<text x="205" y="489" fill="#d1d5db">🌱</text>
+<text x="349" y="489" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="489" fill="#d1d5db" textLength="486" lengthAdjust="spacingAndGlyphs">[ ] [Post #300] You: That’s my route home. Great news!</text>
+<text x="862" y="489" fill="#d1d5db">💚</text>
+<text x="25" y="509" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[S]</text>
+<text x="70" y="509" fill="#d1d5db" textLength="135" lengthAdjust="spacingAndGlyphs">Design exchange</text>
+<text x="214" y="509" fill="#d1d5db">🎨</text>
+<text x="349" y="509" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="509" fill="#d1d5db" textLength="459" lengthAdjust="spacingAndGlyphs">[ ] [Post #298] You: Count me in! Bringing a friend</text>
+<text x="835" y="509" fill="#d1d5db">🎨</text>
+<text x="25" y="529" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[C]</text>
+<text x="70" y="529" fill="#d1d5db" textLength="99" lengthAdjust="spacingAndGlyphs">Train deals</text>
+<text x="178" y="529" fill="#d1d5db">🚆</text>
+<text x="349" y="529" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="529" fill="#d1d5db" textLength="540" lengthAdjust="spacingAndGlyphs">[ ] [Post #299] You: Tried it yesterday. Lovely little place</text>
+<text x="916" y="529" fill="#d1d5db">🌿</text>
+<text x="25" y="549" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="549" fill="#d1d5db" textLength="162" lengthAdjust="spacingAndGlyphs">Žižkov · Neighbors</text>
+<text x="241" y="549" fill="#d1d5db">🏡</text>
+<text x="349" y="549" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="549" fill="#d1d5db" textLength="540" lengthAdjust="spacingAndGlyphs">[ ] [Post #300] You: Anyone up for coffee before the market?</text>
+<text x="916" y="549" fill="#d1d5db">☕</text>
+<text x="25" y="569" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="569" fill="#d1d5db" textLength="171" lengthAdjust="spacingAndGlyphs">Dejvice · Neighbors</text>
+<text x="250" y="569" fill="#d1d5db">🏡</text>
+<text x="349" y="569" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="569" fill="#d1d5db" textLength="504" lengthAdjust="spacingAndGlyphs">[ ] [Post #298] You: Went last year. Absolutely worth it</text>
+<text x="880" y="569" fill="#d1d5db">✨</text>
+<text x="25" y="589" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="589" fill="#d1d5db" textLength="171" lengthAdjust="spacingAndGlyphs">Smíchov · Neighbors</text>
+<text x="250" y="589" fill="#d1d5db">🏡</text>
+<text x="349" y="589" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="589" fill="#d1d5db" textLength="486" lengthAdjust="spacingAndGlyphs">[ ] [Post #299] You: Their cinnamon buns are dangerous</text>
+<text x="862" y="589" fill="#d1d5db">🥐</text>
+<text x="25" y="609" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="609" fill="#d1d5db" textLength="198" lengthAdjust="spacingAndGlyphs">Holešovice · Neighbors</text>
+<text x="277" y="609" fill="#d1d5db">🏡</text>
+<text x="349" y="609" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="609" fill="#d1d5db" textLength="486" lengthAdjust="spacingAndGlyphs">[ ] [Post #300] You: That’s my route home. Great news!</text>
+<text x="862" y="609" fill="#d1d5db">💚</text>
+<text x="25" y="629" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">[G]</text>
+<text x="70" y="629" fill="#d1d5db" textLength="189" lengthAdjust="spacingAndGlyphs">Vinohrady · Dog walks</text>
+<text x="268" y="629" fill="#d1d5db">🐕</text>
+<text x="349" y="629" fill="#64748b" textLength="9" lengthAdjust="spacingAndGlyphs">|</text>
+<text x="367" y="629" fill="#d1d5db" textLength="459" lengthAdjust="spacingAndGlyphs">[ ] [Post #298] You: Count me in! Bringing a friend</text>
+<text x="835" y="629" fill="#d1d5db">🎨</text>
+<text x="16" y="649" fill="#d1d5db" textLength="576" lengthAdjust="spacingAndGlyphs">0 selected · More may be available · More chats may be available</text>
+<text x="16" y="669" fill="#67e8f9" font-weight="700" textLength="45" lengthAdjust="spacingAndGlyphs">↑↓/jk</text>
+<text x="70" y="669" fill="#d1d5db" textLength="36" lengthAdjust="spacingAndGlyphs">Move</text>
+<text x="115" y="669" fill="#67e8f9" font-weight="700" textLength="54" lengthAdjust="spacingAndGlyphs">Tab/←→</text>
+<text x="178" y="669" fill="#d1d5db" textLength="45" lengthAdjust="spacingAndGlyphs">Panel</text>
+<text x="232" y="669" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">p</text>
+<text x="250" y="669" fill="#d1d5db" textLength="27" lengthAdjust="spacingAndGlyphs">P+B</text>
+<text x="286" y="669" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">/</text>
+<text x="304" y="669" fill="#d1d5db" textLength="54" lengthAdjust="spacingAndGlyphs">Search</text>
+<text x="367" y="669" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">R</text>
+<text x="385" y="669" fill="#d1d5db" textLength="45" lengthAdjust="spacingAndGlyphs">Chats</text>
+<text x="439" y="669" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">m</text>
+<text x="457" y="669" fill="#d1d5db" textLength="36" lengthAdjust="spacingAndGlyphs">More</text>
+<text x="502" y="669" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">t</text>
+<text x="520" y="669" fill="#d1d5db" textLength="45" lengthAdjust="spacingAndGlyphs">Scope</text>
+<text x="574" y="669" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">r</text>
+<text x="592" y="669" fill="#d1d5db" textLength="54" lengthAdjust="spacingAndGlyphs">Reload</text>
+<text x="655" y="669" fill="#67e8f9" font-weight="700" textLength="72" lengthAdjust="spacingAndGlyphs">q/Ctrl+C</text>
+<text x="736" y="669" fill="#d1d5db" textLength="36" lengthAdjust="spacingAndGlyphs">Quit</text>
+<text x="781" y="669" fill="#67e8f9" font-weight="700" textLength="9" lengthAdjust="spacingAndGlyphs">?</text>
+<text x="799" y="669" fill="#d1d5db" textLength="36" lengthAdjust="spacingAndGlyphs">Help</text>
+</g></g></svg>

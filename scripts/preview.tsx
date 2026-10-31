@@ -4,13 +4,61 @@ import {setTimeout as delay} from 'node:timers/promises';
 import {render} from 'ink';
 import {App} from '../src/App.js';
 import {TerminalOutput} from '../src/terminal-output.js';
-import type {TelegramApi} from '../src/telegram.js';
+import type {DialogRecord, TelegramApi} from '../src/telegram.js';
 import {testTerminal} from '../test/helpers/terminal.js';
 import {Api} from 'teleproto';
 import {returnBigInt} from 'teleproto/Helpers.js';
 import {getPeerId} from 'teleproto/Utils.js';
 import type {MessageRecord} from '../src/telegram.js';
 import {photo, image} from '../test/helpers/media.js';
+import {terminalSVG} from './terminal-svg.js';
+
+const hikingMessages = [
+  'Train at 08:42? I’ll bring coffee ☕',
+  'Forecast looks good for Saturday ☀️',
+  'Saved the trail map. See you there! 🥾',
+  'Meet by the main entrance, platform side 🚉',
+  'Count me in + one very excited dog 🐕',
+  'Anyone need a spare rain jacket?',
+  'That view was worth the early alarm 🏔️',
+  'Photos from today are in the album 📸',
+  'Same time next weekend? 🙌',
+  'Found a little bakery near the station 🥐',
+  'Back home. Thanks for a lovely day 💚',
+  'I’ll book the tickets tonight 🎟️',
+  'Let’s try the riverside route this time 🌿',
+  'Water, snacks, charged phone. Ready ✅',
+  'Running five minutes late, sorry! 😅',
+  'There’s a direct train back at 17:16 🚆',
+  'The GPX file works in Mapy.cz too 🗺️',
+  'I can bring an extra thermos of tea 🍵',
+  'Good call on the earlier train 👍',
+  'Lunch stop at the little place by the bridge?',
+];
+const channelPosts = [
+  'Night trams are back this weekend 🚋',
+  'New café on the corner. Open until 10 ☕',
+  'Free museum night this Saturday 🏛️',
+  'Sunday market: pastries, flowers, vinyl 🌷',
+  'Five little bookshops worth a detour 📚',
+  'Autumn walks along the river 🍂',
+  'Live jazz in the courtyard tonight 🎷',
+  'A tiny guide to the best dumplings 🥟',
+];
+const discussionMessages = [
+  'Anyone up for coffee before the market? ☕',
+  'Finally, somewhere open late 🙌',
+  'Went last year. Absolutely worth it ✨',
+  'Perfect timing, thanks for the heads-up 🚋',
+  'Their cinnamon buns are dangerous 🥐',
+  'Do we need to book a time slot?',
+  'That’s my route home. Great news! 💚',
+  'Adding this to the weekend list ☕',
+  'Count me in! Bringing a friend 🎨',
+  'The stop by the bridge is open too 👍',
+  'Tried it yesterday. Lovely little place 🌿',
+  'Is the photography exhibition included? 📷',
+];
 
 // Public, synthetic fixtures only: no authentication, disk settings or sessions.
 function syntheticClient(
@@ -22,7 +70,7 @@ function syntheticClient(
   const channel = new Api.Channel({
     id: returnBigInt(1000),
     accessHash: returnBigInt(123),
-    title: 'Synthetic news',
+    title: 'Prague After Hours 🌆',
     broadcast: true,
     photo: new Api.ChatPhotoEmpty(),
     date: 0,
@@ -30,23 +78,25 @@ function syntheticClient(
   const group = new Api.Channel({
     id: returnBigInt(2000),
     accessHash: returnBigInt(456),
-    title: 'Synthetic discussion',
+    title: 'Prague After Hours · chat 💬',
     megagroup: true,
     photo: new Api.ChatPhotoEmpty(),
     date: 0,
   });
+  const snippets = channelMode ? channelPosts : hikingMessages;
   const records: MessageRecord[] = Array.from({length: 202}, (_, index) => ({
     id: 300 - index,
-    message:
-      index === 0
-        ? 'Example message — inspect with Enter before marking.'
-        : `Synthetic planning message ${index}`,
-    senderId: index % 3 === 0 ? 99 : 42,
+    message: snippets[index % snippets.length],
+    senderId: index % 4 === 1 ? 99 : index % 4 === 3 ? 43 : 42,
+    sender: channelMode ? {title: channel.title} : {firstName: index % 4 === 1 ? 'Maya' : 'Leo'},
+    ...(channelMode ? {replies: {replies: [18, 7, 24, 11][index % 4]!}} : {}),
   }));
   const comments: MessageRecord[] = records.map((record, index) => ({
     ...record,
+    replies: undefined,
     senderId: index === 0 ? 42 : record.senderId,
-    message: index === 0 ? 'Synthetic general conversation' : `Synthetic comment ${index}`,
+    sender: {firstName: index % 4 === 1 ? 'Maya' : 'Leo'},
+    message: discussionMessages[index % discussionMessages.length],
     ...(index === 0 ? {} : {replyTo: {replyToTopId: 1000 + 300 - (index % 3)}}),
   }));
   if (mediaMode) records[1]!.media = photo();
@@ -55,11 +105,11 @@ function syntheticClient(
       Object.assign(records[index]!, {
         groupedId: returnBigInt('9007199254740993'),
         media: photo(index + 1),
-        message: index === 1 ? 'A synthetic album with three photos and one shared discussion.' : '',
+        message: index === 1 ? 'A little autumn escape 🍂 Three stops worth the walk.' : '',
       });
   const root = (post: number): MessageRecord => ({
     id: 1000 + post,
-    message: 'Forwarded channel post',
+    message: channelPosts[(300 - post) % channelPosts.length],
     peerId: new Api.PeerChannel({channelId: group.id}),
     fwdFrom: {fromId: new Api.PeerChannel({channelId: channel.id}), channelPost: post},
   });
@@ -68,6 +118,72 @@ function syntheticClient(
     entity === group ? 'discussion' : String(entity);
   const source = (entity: Parameters<TelegramApi['getMessages']>[0]) =>
     entity === group ? comments : records;
+  const titles = [
+    ['Weekend hikers 🥾', 'group'],
+    [channel.title, 'channel'],
+    ['Flatmates 🪴', 'group'],
+    ['TypeScript Weekly 🧑‍💻', 'channel'],
+    ['Maya 🎨', 'private'],
+    ['Dinner club 🍜', 'group'],
+    ['Prague cycling 🚲', 'supergroup'],
+    ['Alex 💬', 'private'],
+    ['Kyoto trip 🇯🇵', 'group'],
+    ['Open Source Café ☕', 'supergroup'],
+    ['Little wins ✨', 'group'],
+    ['Indie Makers 🚀', 'channel'],
+    ['Sunday football ⚽', 'group'],
+    ['Book club 📚', 'group'],
+    ['Music discoveries 🎧', 'channel'],
+    ['Family kitchen 🥘', 'group'],
+    ['Nina 🌻', 'private'],
+    ['Board game nights 🎲', 'group'],
+    ['Trail notes 🌲', 'channel'],
+    ['Reminders ⏰', 'bot'],
+    ['Film night 🍿', 'group'],
+    ['Balcony garden 🌱', 'supergroup'],
+    ['Design exchange 🎨', 'supergroup'],
+    ['Train deals 🚆', 'channel'],
+  ] as const;
+  const neighborhoods = ['Vinohrady', 'Letná', 'Karlín', 'Žižkov', 'Dejvice', 'Smíchov', 'Holešovice'];
+  const communities = [
+    'Running club 🏃',
+    'Coffee people ☕',
+    'Language swap 💬',
+    'Neighbors 🏡',
+    'Dog walks 🐕',
+  ];
+  const dialogs: DialogRecord[] = Array.from({length: 205}, (_, index) => {
+    const [title, type] = titles[index] ?? [
+      `${neighborhoods[index % neighborhoods.length]} · ${communities[Math.floor(index / neighborhoods.length) % communities.length]} ${index < 100 ? '' : '· weekends'}`.trim(),
+      'group',
+    ];
+    const isChannel = type === 'channel';
+    const isUser = type === 'private' || type === 'bot';
+    const entity =
+      title === channel.title
+        ? channel
+        : isChannel
+          ? new Api.Channel({
+              id: returnBigInt(3000 + index),
+              accessHash: returnBigInt(100 + index),
+              title,
+              broadcast: true,
+              photo: new Api.ChatPhotoEmpty(),
+              date: 0,
+            })
+          : isUser
+            ? new Api.User({id: returnBigInt(4000 + index), firstName: title, bot: type === 'bot'})
+            : `preview-group-${index}`;
+    return {
+      id: isChannel || isUser ? getPeerId(entity as Api.Channel | Api.User) : `-${1000 + index}`,
+      title,
+      entity,
+      isUser,
+      isGroup: !isUser && !isChannel,
+      isChannel: isChannel || type === 'supergroup',
+    };
+  });
+  if (channelMode) [dialogs[0], dialogs[1]] = [dialogs[1]!, dialogs[0]!];
   return {
     async downloadMedia() {
       if (slow) await delay(600);
@@ -75,7 +191,9 @@ function syntheticClient(
     },
     api: {
       channels: {
-        async getFullChannel() {
+        async getFullChannel({channel: target}) {
+          if (!('channelId' in target) || String(target.channelId) !== String(channel.id))
+            return {fullChat: {}, chats: []};
           return {fullChat: {linkedChatId: group.id}, chats: [channel, group]};
         },
       },
@@ -86,17 +204,10 @@ function syntheticClient(
       },
     },
     async getMe() {
-      return {id: 42, firstName: 'Synthetic account'};
+      return {id: 42, firstName: 'Alex', lastName: 'Morgan'};
     },
     async *iterDialogs() {
-      for (let index = 0; index < 205; index++)
-        yield {
-          id: channelMode && index === 0 ? getPeerId(channel) : `-${1000 + index}`,
-          title: index === 0 ? (channelMode ? channel.title : 'Weekend project') : `Synthetic group ${index}`,
-          entity: channelMode && index === 0 ? channel : `synthetic-${index}`,
-          isGroup: !(channelMode && index === 0),
-          isChannel: channelMode && index === 0,
-        };
+      yield* dialogs;
     },
     async getMessages(entity, options) {
       if (slow) await delay(options.limit === 1 ? 250 : 600);
@@ -139,11 +250,9 @@ function syntheticClient(
   };
 }
 const settings = {read: () => 32, write: (_value: number) => {}};
-const escapeXML = (text: string) =>
-  text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
 if (process.argv.includes('--capture')) {
   for (const [columns, rows, name, channelMode] of [
-    [100, 24, 'synthetic-terminal', false],
+    [120, 26, 'synthetic-terminal', false],
     [40, 18, 'synthetic-narrow', false],
     [120, 32, 'synthetic-channel', true],
   ] as const) {
@@ -155,21 +264,21 @@ if (process.argv.includes('--capture')) {
       await ui.waitFor((frame) => frame.includes('/ 100 msgs'));
       if (channelMode)
         await ui.waitFor(
-          (frame) =>
-            frame.includes('Synthetic general conversation') && !frame.includes('Loading discussion'),
+          (frame) => frame.includes(discussionMessages[0]!) && !frame.includes('Loading discussion'),
         );
-      const lines = ui.frame().trimEnd().split('\n');
-      const width = columns * 9 + 24;
-      const height = rows * 19 + 36;
-      const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-<title>Synthetic TG Manager: actual App render at ${columns} columns by ${rows} rows</title>
-<rect width="100%" height="100%" fill="#111827"/>
-<g fill="#e5e7eb" font-family="monospace" font-size="14">
-<text x="12" y="22" fill="#67e8f9">SYNTHETIC UI · ${columns}×${rows} · OFFLINE</text>
-${lines.map((line, index) => `<text x="12" y="${48 + index * 19}" xml:space="preserve">${escapeXML(line)}</text>`).join('\n')}
-</g></svg>\n`;
+      if (!channelMode && columns > 80) {
+        await ui.press('p');
+        await ui.press('\t');
+        await ui.press('v');
+        await ui.waitFor((frame) => frame.includes(hikingMessages[0]!));
+        await ui.press(' ');
+        await ui.press('\x1b[B');
+        await ui.press('\x1b[B');
+        await ui.press(' ');
+      }
+      const svg = await terminalSVG(ui.rawFrame(), columns, rows);
       writeFileSync(`assets/${name}.svg`, svg);
-      console.log(`Captured ${name}: ${lines.length} rows`);
+      console.log(`Captured ${name}: ${columns} × ${rows}`);
     } finally {
       await ui.close();
     }

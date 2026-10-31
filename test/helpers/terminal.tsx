@@ -7,13 +7,17 @@ import {render} from 'ink';
 
 export function testTerminal(node: ReactNode, options: {columns?: number; rows?: number} = {}) {
   const frames: string[] = [];
+  let raw = '';
   class Output extends Writable {
     isTTY = true;
     columns = options.columns ?? 200;
     rows = options.rows ?? 30;
     override _write(chunk: Buffer, _encoding: BufferEncoding, callback: () => void) {
       const plain = stripVTControlCharacters(chunk.toString());
-      if (plain.trim()) frames.push(plain);
+      if (plain.trim()) {
+        frames.push(plain);
+        raw = chunk.toString();
+      }
       callback();
     }
   }
@@ -46,6 +50,7 @@ export function testTerminal(node: ReactNode, options: {columns?: number; rows?:
   return {
     frames,
     frame,
+    rawFrame: () => raw,
     instance,
     async press(value: string) {
       stdin.write(value);
