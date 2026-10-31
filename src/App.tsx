@@ -999,7 +999,7 @@ export function App({
             )}
             {showDiscussion && (!compactPanes || inDiscussion) && (
               <MessagePane
-                title={`DISCUSSION · ${discussion.scope === 'group' ? 'Entire group' : `Post #${postMessages[state.messageIndex]?.id ?? '—'}`} [${commands.find((command) => command.id === 'discussion')!.key}]`}
+                title={`DISCUSSION · ${discussion.scope === 'group' ? 'Entire group' : `Post #${postMessages[state.messageIndex]?.id ?? '—'}`} · ${commands.find((command) => command.id === 'discussion')!.key} to change scope`}
                 width={rightWidth}
                 height={compactPanes ? listHeight + 1 : discussionHeight}
                 active={inDiscussion}

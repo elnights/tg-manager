@@ -56,7 +56,7 @@ The linked discussion’s actual dialog remains a normal supergroup if joined;
 no synthetic discussion chat is inserted. Hiding groups affects the chat list,
 while a visible channel can still show its discussion.
 
-The discussion header shows `[t]` after its current scope label.
+The discussion header shows “t to change scope” after its current scope label.
 `t` selects one of two discussion scopes. Selected post follows the highlighted
 post automatically; checkbox marks only select messages for deletion. Entire
 group ignores the post highlight and includes comments across posts plus general

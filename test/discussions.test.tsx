@@ -213,7 +213,10 @@ test('channels automatically show posts as All and the entire discussion as Mine
   const ui = testTerminal(<App client={mock.client} />);
   try {
     await ready(ui);
-    assert.ok(ui.frame().includes('POSTS · All') && ui.frame().includes('DISCUSSION · Entire group [t]'));
+    assert.ok(
+      ui.frame().includes('POSTS · All') &&
+        ui.frame().includes('DISCUSSION · Entire group · t to change scope'),
+    );
     assert.ok(ui.frame().includes('[Post #300] You:') && ui.frame().includes('[General] You:'));
     assert.ok(ui.frame().includes('My general message'));
     assert.ok(!ui.frame().includes('Other comment'));
@@ -276,7 +279,7 @@ test('post scope follows the highlight and Mine uses a thread search; scan and d
     await ui.press('t');
     await ui.waitFor(
       (frame) =>
-        frame.includes('DISCUSSION · Post #300 [t]') &&
+        frame.includes('DISCUSSION · Post #300 · t to change scope') &&
         frame.includes('My comment 0') &&
         !frame.includes('Loading discussion'),
     );
@@ -296,7 +299,7 @@ test('post scope follows the highlight and Mine uses a thread search; scan and d
     await ui.press('\x1b[B');
     await ui.waitFor(
       (frame) =>
-        frame.includes('DISCUSSION · Post #250 [t]') &&
+        frame.includes('DISCUSSION · Post #250 · t to change scope') &&
         frame.includes('My comment 1') &&
         !frame.includes('Loading discussion'),
     );

@@ -19,7 +19,7 @@
 
 ### Fixed
 
-- Show the `t` scope shortcut beside the discussion pane's scope label.
+- Show “t to change scope” beside the discussion pane's scope label.
 - Show `p` in the footer legend and clarify that it toggles private chats and bots together.
 - Resolve comments through nested reply chains even when source posts are not loaded; incomplete context stays unavailable instead of being mislabeled General.
 
