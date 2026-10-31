@@ -17,6 +17,7 @@
 
 ### Fixed
 
+- Show `p` in the footer legend and clarify that it toggles private chats and bots together.
 - Resolve comments through nested reply chains even when source posts are not loaded; incomplete context stays unavailable instead of being mislabeled General.
 
 - Keep the top header and chat-list viewport stable when switching chat types and resolving discussions.

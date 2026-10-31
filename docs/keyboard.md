@@ -185,10 +185,13 @@ Errors and warnings also remain until dismissed; routine information expires.
 Width is saved to `~/.config/tg-manager/settings.json` and clamped to 20–70%,
 subject to terminal width. A short terminal shows an enlargement hint while
 retaining the legend; help scrolls independently. Both panels list the global
-controls: panel switching (including arrow aliases), private-chat visibility,
+controls: panel switching (including arrow aliases), private-chat and bot visibility,
 view, reload, delete-all, width adjustment/reset, quit and help. Selection and
 pagination keys appear when their actions are available. Prompts and background
 work list their own accepted keys, including Ctrl+C.
+
+The footer shows `p` as “Private + bots” (or “P+B” when space is limited).
+It toggles both types together; `f` lets you filter them independently.
 
 The legend always reserves room for every active key. It first shortens labels,
 then uses key names with descriptions where space allows. At narrower widths,

@@ -365,7 +365,7 @@ test('focusing comments highlights their source post and g transfers keyboard fo
     await comments(ui);
     await ui.press('\x1b[B');
     await ui.waitFor((frame) => frame.includes('> [-] #250') && frame.includes('[ACTIVE] DISCUSSION'));
-    assert.ok(ui.frame().includes('g Go to post'));
+    assert.match(ui.frame(), /(?:^|\s)g(?:\s|$)/);
     await ui.press(' ');
     await ui.press('g');
     assert.ok(ui.frame().includes('[ACTIVE] POSTS') && ui.frame().includes('> [-] #250'));
@@ -374,7 +374,7 @@ test('focusing comments highlights their source post and g transfers keyboard fo
     await ui.press('\x1b[B');
     await ui.press('g');
     assert.ok(ui.frame().includes('[ACTIVE] DISCUSSION') && ui.frame().includes('> [-] #250'));
-    assert.ok(!ui.frame().includes('g Go to post'));
+    assert.doesNotMatch(ui.frame(), /(?:^|\s)g(?:\s|$)/);
     assert.equal(mock.calls.deletes.length, 0);
   } finally {
     await ui.close();

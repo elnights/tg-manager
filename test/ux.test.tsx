@@ -70,7 +70,7 @@ test('every active binding survives label shortening and wrapping in either pane
 });
 
 test('the active-binding list includes every global key and excludes paused application commands', () => {
-  const globals = ['Tab/←→', 'r', 'A', 'q/Ctrl+C', '?'];
+  const globals = ['Tab/←→', 'p', 'r', 'A', 'q/Ctrl+C', '?'];
   for (const focus of ['chats', 'messages'] as const) {
     const keys = footerShortcuts({...footerState, focus, selected: 12, hasNotice: true}).map(
       (item) => item.key,
@@ -134,7 +134,7 @@ test('view options show exact counts separately from actions at wide and narrow 
         assert.ok(lines.every((line) => stringWidth(line) <= width));
       }
   const keys = footerShortcuts(footerState).map((item) => item.key);
-  for (const key of ['f', 'p', 'v', 'o', '[ ]', '0', 'PgUp/PgDn', 'Home/End']) assert.ok(!keys.includes(key));
+  for (const key of ['f', 'v', 'o', '[ ]', '0', 'PgUp/PgDn', 'Home/End']) assert.ok(!keys.includes(key));
   for (const [input, id] of [
     ['f', 'types'],
     ['p', 'private'],
@@ -283,7 +283,7 @@ test('the rendered legend includes all working keys after focus, selection and t
   const assertKeys = (keys: string[]) => {
     for (const key of keys) assert.ok(legend().includes(key), `missing ${key}: ${legend()}`);
   };
-  const globalKeys = ['↑↓/jk', 'Tab/←→', 'r', 'A', 'q/Ctrl+C', '?'];
+  const globalKeys = ['↑↓/jk', 'Tab/←→', 'p', 'r', 'A', 'q/Ctrl+C', '?'];
   try {
     await ready(ui);
     // There is one chat, so only the messages panel has navigation work to do.

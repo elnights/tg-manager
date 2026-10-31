@@ -134,7 +134,8 @@ package exposes a CLI, with no supported programmatic API.
   so focus stays visible across terminal palettes.
 - Derive matching, availability and advertised bindings from `commands.ts`.
   Show view toggles and exact loaded counts in the top view strip; reserve the
-  footer for actions. Extended navigation and layout bindings stay in help.
+  footer for actions and the private-chat/bot shortcut. Extended navigation and
+  layout bindings stay in help.
   Keep every active binding discoverable through the strip, footer or help.
   Readers/help isolate input from the underlying app; help may overlay an existing prompt.
 - Progress takes precedence during work. Preserve errors/results until
